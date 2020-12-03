@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Административная панель</title>
+</head>
+<body>
+<div class="header">
+    <h1>BBS</h1>
+    <h2>Административная панель</h2>
+</div>
+<div class="users_table">
+    <div class="table-header">
+        <button class="done" onclick="window.location.href = '/logout'">Выход</button>
+        <h3>Пользователи</h3>
+        <button class="add" onclick="newUserFormOpen()">Добавить</button>
+    </div>
+    <div id="users">
+        <table class="users_table">
+            <thead>
+            <tr>
+                <th>логин</th>
+                <th>пароль</th>
+                <th>роль</th>
+                <th>удалить</th>
+            </tr>
+            </thead>
+            <tfoot>
+            <tr>
+                <td colspan="5">
+                </td>
+            </tr>
+            </tfoot>
+            <tbody>
+            {{ range .Users }}
+                <tr>
+                    <td>{{ .Login }}</td>
+                    <td>{{ .Password }}</td>
+                    <td>{{ .Role }}</td>
+                    {{ if eq .Role 0 }}
+                    <td>админ</td>
+                    {{ else if eq .Role 1 }}
+                    <td>комплектовщик</td>
+                    {{ else if eq .Role 2 }}
+                    <td>кладовщик</td>
+                    {{ end }}
+                    <td width="10%" align="center"><button class="done" onclick="deleteUser({{ .Login }})">X</button> </td>
+                </tr>
+            {{ end }}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="add-new-user" id="new-user">
+    <div class="form">
+        <fieldset>
+            <legend>Добавить нового пользователя:</legend>
+            <form action="/admin/new_user" method="post">
+                <label>Логин<input type="text" placeholder="логин" name="login" required/></label>
+                <label>Пароль<input type="text" placeholder="пароль" name="password" required/></label>
+                <label>Роль<select name="role">
+                        <option value="0">админ</option>
+                        <option value="1">комплектовщик</option>
+                        <option value="2">кладовщик</option>
+                    </select></label>
+                <input type="button" onclick="newUserFormClose()" value="Отмена">
+                <input type="submit" onclick="newUserFormClose()" value="Добавить">
+            </form>
+        </fieldset>
+    </div>
+</div>
+<script src="/static/scripts/admin.js"></script>
+</body>
+</html>
