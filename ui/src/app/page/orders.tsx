@@ -54,7 +54,7 @@ export function OrdersPage() {
         <Layout>
             <Header>Комплектование</Header>
 
-            <Table celled selectable>
+            <Table celled selectable singleLine>
                 <Table.Header>
                     <Table.Row>
                         <Table.HeaderCell>№</Table.HeaderCell>
