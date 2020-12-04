@@ -50,7 +50,7 @@ function AuthRouter() {
             <Route path="/orders/small/:id">
                 <OrdersSmallPage />
             </Route>
-            <Route path="/orders/pallet">
+            <Route path="/orders/pallet/:id">
                 <OrdersPalletPage />
             </Route>
             <Route path="/orders">
