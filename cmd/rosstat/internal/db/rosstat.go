@@ -22,24 +22,26 @@ type GoodOrdered struct {
 
 // the order
 type Order struct {
-	Id           int           `db:"id" json:"id"`
-	NumOrder     string        `db:"num_order" json:"num_order"`
-	Contract     string        `db:"contract" json:"contract"`
-	Run          int           `db:"run" json:"run"`
-	Customer     string        `db:"customer" json:"customer"`
-	OrderName    string        `db:"order_name" json:"order_name"`
-	Address      string        `db:"address" json:"address"`
-	GoodsInOrder []GoodOrdered `db:"goods_in_order" json:"goods_in_order"`
+	Id                int           `db:"id" json:"id"`
+	NumOrder          string        `db:"num_order" json:"num_order"`
+	Contract          string        `db:"contract" json:"contract"`
+	Run               int           `db:"run" json:"run"`
+	Customer          string        `db:"customer" json:"customer"`
+	OrderName         string        `db:"order_name" json:"order_name"`
+	Address           string        `db:"address" json:"address"`
+	GoodsInBigOrder   []GoodOrdered `db:"goods_in_big_order" json:"goods_big_in_order"`
+	GoodsInSmallOrder []GoodOrdered `db:"goods_in_small_order" json:"goods_small_in_order"`
+	Boxes             int           `db:"boxes" json:"boxes"`
+	Pallets           int           `db:"pallets" json:"pallets"`
 }
-
 
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
-func PutSmallOrderToDB(orderId int, boxIds []int, userName string)(int, error){
+func PutSmallOrderToDB(orderId int, boxIds []int, userName string) (int, error) {
 
 	err := createSmallBoxesRecord(orderId, boxIds, userName)
-	if err !=  nil {
+	if err != nil {
 		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
 		return 0, err
 	}
@@ -52,7 +54,7 @@ func PutSmallOrderToDB(orderId int, boxIds []int, userName string)(int, error){
 
 	statementUpdate := "update rosstat.rosstat_orders set "
 	for i := 1; i < 27; i++ {
-		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " +  strconv.Itoa(complectedGoods[i-1]) + ", "
+		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " + strconv.Itoa(complectedGoods[i-1]) + ", "
 	}
 	statementUpdate = strings.TrimRight(statementUpdate, ",")
 	statementUpdate += ";"
@@ -62,7 +64,7 @@ func PutSmallOrderToDB(orderId int, boxIds []int, userName string)(int, error){
 }
 
 // TODO: update data in rosstat_orders - subtract amount of goods that were completed// Call it after button "Pallet is done" pressed and no error about small order completion, if this pallet is last
-func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, int, int, error){
+func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, int, int, error) {
 	// id for pallet forms from order id and pallet number
 	palletId, err := strconv.Atoi(strconv.Itoa(orderId) + strconv.Itoa(palletNum)) // result like: if orderId 1264 + palletNum 7 will be 12647
 	if err != nil {
@@ -70,7 +72,7 @@ func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, in
 		return 0, 0, 0, err
 	}
 	// TODO: put in db: insert into rosstat.pallets id, num, order_id values palletId, palletNum, orderId Error check!!!
-	err = createBoxesRecord(palletId, boxes,userName)
+	err = createBoxesRecord(palletId, boxes, userName)
 	if err != nil {
 		log.Println("Cannot convert pallet id to int: " + err.Error())
 		return 0, 0, 0, err
@@ -80,7 +82,7 @@ func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, in
 }
 
 // Mostly this should be called when we start a new order. But can be called if order is not complete and closed by accidence or because of new shift
-func GetLastPalletNumBuOrderId(orderId int) (int,error){
+func GetLastPalletNumBuOrderId(orderId int) (int, error) {
 	palletNum := 0
 	// TODO: select max(num) from rosstat.pallets where oder_id = orderId and put it into palletNum  Error check!!!
 	// if there is no pallets with this order_id - return 0, it means we have no pallets for this order yet
@@ -88,11 +90,11 @@ func GetLastPalletNumBuOrderId(orderId int) (int,error){
 }
 
 // list of all goods need to be collected in whole boxes. Called when "create pallet" button pressed in order completing window
-func GetOrderListForWholeBoxes(orderId int) ([]GoodOrdered, error){
+func GetOrderListForWholeBoxes(orderId int) ([]GoodOrdered, error) {
 	var result []GoodOrdered
 	for i := 0; i < 26; i++ {
 		tmp := GoodOrdered{}
-		tmp.Good = GetProductByBoxID(i+1)
+		tmp.Good = GetProductByBoxID(i + 1)
 		amount := 0
 		// TODO: select strconv.Itoa(i+1) from rosstat.rosstat_orders where id = orderId. Put result into amount  Error check!!!
 		tmp.Amount = GetWholeBoxesOfThisProduct(tmp.Good, amount) // here we get amount of boxes of this product!
@@ -102,11 +104,11 @@ func GetOrderListForWholeBoxes(orderId int) ([]GoodOrdered, error){
 }
 
 // this list is for small part of order, for combined boxes(27 type) Called when small order clicked
-func GetOrderListForPieces(orderId int) ([]GoodOrdered, error){
+func GetOrderListForPieces(orderId int) ([]GoodOrdered, error) {
 	var result []GoodOrdered
 	for i := 0; i < 26; i++ {
 		tmp := GoodOrdered{}
-		tmp.Good = GetProductByBoxID(i+1)
+		tmp.Good = GetProductByBoxID(i + 1)
 		amount := 0
 		// TODO: select strconv.Itoa(i+1) from rosstat.rosstat_orders where id = orderId. Put result into amount Error check!!!
 		tmp.Amount = GetPiecesOfThisProduct(tmp.Good, amount) // here we get amount of pieces, not boxes of this product!
@@ -133,9 +135,9 @@ func GetPiecesOfThisProduct(product Good, totalAmount int) int {
 }
 
 // returns amount of boxed for each type of good got from ids array
-func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds [] int)([27]int, error){
-	var result [27] int
-	for i := 0; i < len(boxIds); i++{
+func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds []int) ([27]int, error) {
+	var result [27]int
+	for i := 0; i < len(boxIds); i++ {
 		goodType, err := strconv.Atoi(GetProductByBoxID(boxIds[i]).Num)
 		if err != nil {
 			log.Println("Error try to convert good type to int: " + err.Error())
@@ -147,10 +149,10 @@ func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds [] int)([27]int, error){
 }
 
 // returns amount of pieces for each type of good got from ids array
-func GetAmountOfPiecesOfGood(orderId int)([26]int, error){
-	var result [26] int
+func GetAmountOfPiecesOfGood(orderId int) ([26]int, error) {
+	var result [26]int
 	statement := "select "
-	for i := 1; i < 27; i++{
+	for i := 1; i < 27; i++ {
 		statement += strconv.Itoa(i) + ", "
 	}
 	statement = strings.TrimRight(statement, ",")
@@ -163,7 +165,6 @@ func GetAmountOfPiecesOfGood(orderId int)([26]int, error){
 	}
 	return result, nil
 }
-
 
 func GetProductByBoxID(id int) Good {
 	result := Good{
@@ -340,7 +341,7 @@ func GetProductByBoxID(id int) Good {
 func createBoxesRecord(palletId int, boxes []int, userName string) error {
 	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, user_name
 	palletIdStr := strconv.Itoa(palletId)
-	for i:= 0; i < len(boxes); i++ {
+	for i := 0; i < len(boxes); i++ {
 		statement += "(" + strconv.Itoa(boxes[i]) + ", " + palletIdStr + ", " + userName + "),"
 	}
 	statement = strings.TrimRight(statement, ",")
@@ -350,9 +351,9 @@ func createBoxesRecord(palletId int, boxes []int, userName string) error {
 }
 
 // put data in rosstat.small_boxes
-func createSmallBoxesRecord(orderId int, boxIds []int, userName string) error{
+func createSmallBoxesRecord(orderId int, boxIds []int, userName string) error {
 	statementInsert := "insert into rosstat.small_boxes values "
-	for i := 0; i < len(boxIds);i++{
+	for i := 0; i < len(boxIds); i++ {
 		statementInsert += "(" + strconv.Itoa(boxIds[i]) + ", " + strconv.Itoa(orderId) + ", " + userName + "),"
 	}
 	statementInsert = strings.TrimRight(statementInsert, ",")
@@ -362,11 +363,11 @@ func createSmallBoxesRecord(orderId int, boxIds []int, userName string) error{
 }
 
 // subtract collected boxes from order
-func updateDataInRosstatOrdersWithBoxes()error{
+func updateDataInRosstatOrdersWithBoxes() error {
 	return nil
 }
 
 // subtract collected pieces of goods from order
-func updateDataInRosstatOrdersWithPieces()error{
+func updateDataInRosstatOrdersWithPieces() error {
 	return nil
 }
