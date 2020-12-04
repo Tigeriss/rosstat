@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"log"
-	"rosstat/cmd/rosstat/internal/handlers"
 	"strconv"
 	"strings"
 )
@@ -37,8 +36,8 @@ type Order struct {
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 
 
-func GetAllOrdersForCompletion()([]handlers.OrdersModel,error){
-	var result []handlers.OrdersModel
+func GetAllOrdersForCompletion()([]OrdersModel,error){
+	var result []OrdersModel
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -57,7 +56,6 @@ func GetAllOrdersForCompletion()([]handlers.OrdersModel,error){
 
 		order := Order{}
 		rows.Scan(&order)
-		log.Println(order.NumOrder)
 
 		boxes, err := getBoxesAmountForOrder(order.Id)
 		if err != nil {
@@ -74,7 +72,7 @@ func GetAllOrdersForCompletion()([]handlers.OrdersModel,error){
 			log.Println("error get amount of combined boxes for order: " + err.Error())
 		}
 
-		tmp := handlers.OrdersModel{
+		tmp := OrdersModel{
 			ID:            order.Id,
 			Num:           index,
 			OrderCaption:  order.NumOrder + "-" + order.OrderName,
@@ -83,7 +81,7 @@ func GetAllOrdersForCompletion()([]handlers.OrdersModel,error){
 			Run:           order.Run,
 			AmountPallets: 0,
 			AmountBoxes:   0,
-			SubOrders:   []handlers.SubOrderModel{
+			SubOrders:   []SubOrderModel{
 				{
 					IsSmall:       false,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
@@ -134,7 +132,7 @@ func getPalletsAmountForOrder(orderId int) (int,error){
 	}
 	defer db.Close()
 
-	statement := "select count(id) from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
+	statement := "select count(id) from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ";"
 	rows, err := db.Query(statement)
 	if err != nil {
 		log.Println("error get amount of pallets for order: " + err.Error())
@@ -155,7 +153,7 @@ func getSmallBoxesAmountForOrder(orderId int) (int,error){
 	}
 	defer db.Close()
 
-	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ");"
+	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
 	rows, err := db.Query(statement)
 	if err != nil {
 		log.Println("error get amount of small boxes for order: " + err.Error())

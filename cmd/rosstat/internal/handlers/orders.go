@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -50,56 +51,61 @@ func PutSmallToBuildOrders(c echo.Context) error {
 func GetToBuildOrders(c echo.Context) error {
 	ctx := c.(*RosContext)
 
-	result := []db.OrdersModel{
-		{
-			ID:            1,
-			Num:           1,
-			OrderCaption:  "О-20-123-РОССТАТ 2",
-			Customer:      "Росстат",
-			Address:       "107123, Москва",
-			Run:           270,
-			AmountPallets: 1,
-			AmountBoxes:   1,
-			SubOrders: []db.SubOrderModel{
-				{
-					IsSmall:       false,
-					OrderCaption:  "О-20-123-РОССТАТ 2 (1-26)",
-					AmountPallets: 1,
-					AmountBoxes:   1,
-				},
-				{
-					IsSmall:       true,
-					OrderCaption:  "О-20-123-РОССТАТ 2 (27)",
-					AmountPallets: 1,
-					AmountBoxes:   1,
-				},
-			},
-		},
-		{
-			ID:            2,
-			Num:           2,
-			OrderCaption:  "О-22-355-РОССТАТ 1",
-			Customer:      "Росстат",
-			Address:       "107123, Москва",
-			Run:           1650,
-			AmountPallets: 0,
-			AmountBoxes:   0,
-			SubOrders: []db.SubOrderModel{
-				{
-					IsSmall:       false,
-					OrderCaption:  "О-22-355-РОССТАТ 1 (1-26)",
-					AmountPallets: 0,
-					AmountBoxes:   0,
-				},
-				{
-					IsSmall:       true,
-					OrderCaption:  "О-22-355-РОССТАТ 1 (27)",
-					AmountPallets: 0,
-					AmountBoxes:   0,
-				},
-			},
-		},
+	result, err := db.GetAllOrdersForCompletion()
+	if err != nil{
+		log.Println("error get all orders for completion: " + err.Error())
+		return err
 	}
+	// 	[]db.OrdersModel{
+	// 	{
+	// 		ID:            1,
+	// 		Num:           1,
+	// 		OrderCaption:  "О-20-123-РОССТАТ 2",
+	// 		Customer:      "Росстат",
+	// 		Address:       "107123, Москва",
+	// 		Run:           270,
+	// 		AmountPallets: 1,
+	// 		AmountBoxes:   1,
+	// 		SubOrders: []db.SubOrderModel{
+	// 			{
+	// 				IsSmall:       false,
+	// 				OrderCaption:  "О-20-123-РОССТАТ 2 (1-26)",
+	// 				AmountPallets: 1,
+	// 				AmountBoxes:   1,
+	// 			},
+	// 			{
+	// 				IsSmall:       true,
+	// 				OrderCaption:  "О-20-123-РОССТАТ 2 (27)",
+	// 				AmountPallets: 1,
+	// 				AmountBoxes:   1,
+	// 			},
+	// 		},
+	// 	},
+	// 	{
+	// 		ID:            2,
+	// 		Num:           2,
+	// 		OrderCaption:  "О-22-355-РОССТАТ 1",
+	// 		Customer:      "Росстат",
+	// 		Address:       "107123, Москва",
+	// 		Run:           1650,
+	// 		AmountPallets: 0,
+	// 		AmountBoxes:   0,
+	// 		SubOrders: []db.SubOrderModel{
+	// 			{
+	// 				IsSmall:       false,
+	// 				OrderCaption:  "О-22-355-РОССТАТ 1 (1-26)",
+	// 				AmountPallets: 0,
+	// 				AmountBoxes:   0,
+	// 			},
+	// 			{
+	// 				IsSmall:       true,
+	// 				OrderCaption:  "О-22-355-РОССТАТ 1 (27)",
+	// 				AmountPallets: 0,
+	// 				AmountBoxes:   0,
+	// 			},
+	// 		},
+	// 	},
+	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
