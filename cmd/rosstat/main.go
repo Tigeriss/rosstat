@@ -86,6 +86,7 @@ func main() {
 
 	// ---- ALL API ENDPOINTS ARE DEFINED HERE !!! ----
 	api.GET("/orders", handlers.GetOrders)
+	api.GET("/orders/build", handlers.GetToBuildOrders)
 	api.GET("/orders/small/build", handlers.GetSmallToBuildOrders)
 	api.PUT("/orders/small/build", handlers.PutSmallToBuildOrders)
 	// ------------------------------------------------
