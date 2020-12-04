@@ -24,6 +24,10 @@ function formatDate(d: Date = new Date()) {
 export class Session {
     private loggedUser: User | null = null;
 
+    private autoUpdateInterval = null;
+
+    preparedBoxes: string[] = [];
+
     get currentUser(): User | null {
         return this.loggedUser;
     }
@@ -37,14 +41,24 @@ export class Session {
         this.loggedUser = val;
     }
 
+    openedOrders: Record<string, boolean> = {};
+
+    completedBoxes: Record<number, boolean> = {};
+
     currentDate: string = formatDate();
 
     ordersToBuild: OrdersModel[] | null = null;
 
-    currentBigOrder: BigOrdersModel[] = [];
+    currentOrderId: number | null = null;
 
-    constructor() {
+    currentBigOrder: BigOrdersModel[] = [];
+    currentSmallOrder: BigOrdersModel[] = [];
+
+    constructor(skip = false) {
         makeAutoObservable(this);
+        if (skip) {
+            return;
+        }
 
         setInterval(() => {
             this.currentDate = formatDate();
@@ -64,7 +78,17 @@ export class Session {
             localStorage.removeItem(storageKey);
         }
 
+        this.autoUpdate();
+    }
+
+    autoUpdate() {
+        clearInterval(this.autoUpdateInterval as any);
         this.fetchOrdersToBuild().catch(console.error);
+
+        this.autoUpdateInterval = setInterval(() => {
+            this.fetchOrdersToBuild().catch(console.error);
+            this.fetchBigOrdersToBuild().catch(console.error);
+        }, 1000) as any;
     }
 
     async login(login: string, password: string): Promise<boolean> {
@@ -72,7 +96,7 @@ export class Session {
             const res = await auth.login(this, login, password);
             if (res.token != null) {
                 this.currentUser = res;
-                this.fetchOrdersToBuild().catch(console.error);
+                this.autoUpdate();
                 return true;
             }
         } catch (ex) {
@@ -88,11 +112,28 @@ export class Session {
         this.ordersToBuild = await orders.getOrdersToBuild(this);
     }
 
-    async fetchBigOrdersToBuild(id: number): Promise<void> {
-        this.currentBigOrder = await orders.getBigOrdersToBuild(this, id);
+    async fetchBigOrdersToBuild(): Promise<void> {
+        if (this.currentOrderId == null) {
+            return;
+        }
+        this.currentBigOrder = await orders.getBigOrdersToBuild(this, this.currentOrderId);
+    }
+
+    async fetchSmallOrdersToBuild(): Promise<void> {
+        if (this.currentOrderId == null) {
+            return;
+        }
+        this.currentSmallOrder = await orders.getSmallOrdersToBuild(this, this.currentOrderId);
     }
 
     findOrder(id: number): OrdersModel | null {
         return (this.ordersToBuild ?? []).find(o => o.id === id) ?? null;
+    }
+
+    async finishOrders(): Promise<void> {
+        if (this.currentOrderId == null) {
+            return Promise.reject(new Error("orderId is null"));
+        }
+        return  await orders.finishOrders(this, this.currentOrderId, this.preparedBoxes);
     }
 }

@@ -5,10 +5,10 @@ import {useSession} from "../app";
 import {Layout} from "../component/layout";
 import {Header, Table} from "semantic-ui-react";
 import {OrdersModel, SubOrderModel} from "../../api/orders";
-import * as H from "history";
+import {Session} from "../../store/session";
 
-function renderRow(history: ReturnType<typeof useHistory>, order: OrdersModel) {
-    const rows = [<Table.Row positive onClick={() => order.opened = !order.opened} key={order.id}>
+function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: OrdersModel) {
+    const rows = [<Table.Row positive onClick={() => session.openedOrders[order.id] = !session.openedOrders[order.id]} key={order.id}>
         <Table.Cell width="1">{order.num}</Table.Cell>
         <Table.Cell width="3">{order.order_caption}</Table.Cell>
         <Table.Cell width="2">{order.customer}</Table.Cell>
@@ -26,7 +26,7 @@ function renderRow(history: ReturnType<typeof useHistory>, order: OrdersModel) {
         }
     }
 
-    if (order.opened) {
+    if (session.openedOrders[order.id]) {
         let n = 0;
         for (const sub of order.sub_orders) {
             rows.push(
@@ -68,7 +68,7 @@ export function OrdersPage() {
                 </Table.Header>
 
                 <Table.Body>
-                    {session.ordersToBuild?.map?.(renderRow.bind(null, history))}
+                    {session.ordersToBuild?.map?.(renderRow.bind(null, history, session))}
                 </Table.Body>
             </Table>
 

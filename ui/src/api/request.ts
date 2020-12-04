@@ -27,5 +27,9 @@ export async function request<T>(session: Session, path: string, data: Record<st
         throw new Error(`request ${method} ${API_URL + path} failed: ${req.statusText}`);
     }
 
+    if (req.status === 204) {
+        return {} as any;
+    }
+
     return await req.json();
 }

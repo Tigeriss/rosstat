@@ -28,3 +28,7 @@ type BigOrdersModel struct {
 	Total    int    `json:"total"`
 	Built    int    `json:"built"`
 }
+
+type FinishSmallOrderModel struct {
+	Boxes []string `json:"boxes"`
+}
