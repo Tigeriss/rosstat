@@ -1,0 +1,57 @@
+package handlers
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/labstack/echo/v4"
+)
+
+const LoginSecretKey = "pleasechangeme"
+
+type LoginRequest struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Login string `json:"login"`
+	Role  string `json:"role"`
+	Token string `json:"token"`
+}
+
+func Login(c echo.Context) error {
+	ctx := c.(*RosContext)
+	req := new(LoginRequest)
+
+	if err := ctx.Bind(req); err != nil {
+		return echo.ErrBadRequest
+	}
+
+	// replace it with real db
+	if req.Login != "admin" || req.Password != "admin" {
+		return echo.ErrUnauthorized
+	}
+
+	// Create token
+	token := jwt.New(jwt.SigningMethodHS256)
+
+	// Set claims
+	claims := token.Claims.(jwt.MapClaims)
+	claims["name"] = "Jon Snow"
+	claims["admin"] = true
+	claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+
+	// Generate encoded token and send it as response.
+	t, err := token.SignedString([]byte(LoginSecretKey))
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, LoginResponse{
+		Login: req.Login,
+		Role:  "admin",
+		Token: t,
+	})
+}

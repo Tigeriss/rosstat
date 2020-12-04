@@ -1,219 +1,293 @@
 package main
 
 import (
-	"errors"
-	"github.com/recoilme/pudge"
-	"html/template"
+	"context"
+	"flag"
 	"log"
-	"net/http"
+	"net/url"
+	"os"
+	"os/signal"
 	"path"
-	"rosstat/internal"
-	"rosstat/internal/session"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+
+	_ "github.com/lib/pq"
+
+	"rosstat/cmd/rosstat/internal/debug"
+	"rosstat/cmd/rosstat/internal/handlers"
 )
 
-var (
+var dbConnStr = "root:whatever@tcp(127.0.0.1:13306)/chat"
+var port = 80
+var debugFlag = false
 
-	tmpl = template.Must(template.ParseFiles(path.Join(".", "ui", "templates", "login.html"),
-		path.Join(".", "ui", "templates", "admin.html"),
-		path.Join(".", "ui", "templates", "orders.html"),
-		path.Join(".", "ui", "templates", "small.html"),
-		path.Join(".", "ui", "templates", "o-pallet.html"),
-		path.Join(".", "ui", "templates", "shipment.html"),
-		path.Join(".", "ui", "templates", "s-pallet.html"),
-		path.Join(".", "ui", "templates", "big.html")))
-)
-
-type UserSession struct {
-	ApiKey      string `json:"apiKey"`
-	CurrentUser string `json:"currentUser"`
+func init() {
+	flag.BoolVar(&debugFlag, "debug", debugFlag, "proxy to use react-create-app instead of using static handler")
+	flag.IntVar(&port, "port", port, "listen port")
+	flag.StringVar(&dbConnStr, "db-conn", dbConnStr, "db connection string")
 }
-
 
 func main() {
-	createFirstAdmin()
-	http.HandleFunc("/", handleRoot)
-	http.HandleFunc("/login", handleLogin)
-	http.HandleFunc("/login/enter", handlerLoginCheck)
-	http.HandleFunc("/orders", handleOrders)
-	http.HandleFunc("/orders/big", handleBigOrder)
-	http.HandleFunc("/orders/small", handleSmallOrder)
-	http.HandleFunc("/orders/pallet", handlePallet)
-	http.HandleFunc("/shipment", handleShipment)
-	http.HandleFunc("/shipment/pallet", handleShipmentPallet)
-	http.HandleFunc("/admin", handleAdmin)
-	http.HandleFunc("/admin/new_user", handleAdminNewUser)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("ui/"))))
-	log.Fatal(http.ListenAndServe(":9090", nil))
-}
+	flag.Parse()
 
-func handleRoot(writer http.ResponseWriter, request *http.Request){
-	http.Redirect(writer, request, "/login", http.StatusFound)
-}
+	appCtx, appCancel := context.WithCancel(context.Background())
 
-func handleLogin(writer http.ResponseWriter, request *http.Request) {
-	if request.Method != "GET" {
-		err := errors.New("don't do it")
-		internal.ResponseForbidden(writer, err)
-		return
+	// run react debug server for convenient development
+	if debugFlag {
+		debug.RunReactDevServer(appCtx)
 	}
-	err := tmpl.ExecuteTemplate(writer, "login.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
 
-func handlerLoginCheck(writer http.ResponseWriter, request *http.Request) {
-	if request.Method == "GET" {
-		http.Redirect(writer, request, "/login", http.StatusFound)
+	// http
+	ec := echo.New()
+
+	// some helpful stuff
+	ec.Use(middleware.Recover())
+	ec.Use(middleware.RequestID())
+	ec.Use(handlers.RosContextMiddleware(dbConnStr))
+	ec.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `REQU[${time_rfc3339}] ${remote_ip} ${status} ${method} ${uri} ${latency_human} ${error}${message}` + "\n",
+	}))
+	ec.Use(middleware.CORS())
+
+	// login settings
+	ec.POST("/api/login", handlers.Login)
+
+	// static files
+	if debugFlag {
+		reactUrl, err := url.Parse("http://localhost:3000")
+		if err != nil {
+			log.Fatalf("unable to parse react url: %s", err)
+		}
+		// proxy static to webpack for debug mode
+		cfg := middleware.ProxyConfig{
+			Skipper: func(c echo.Context) bool {
+				return strings.HasPrefix(c.Path(), "/api/")
+			},
+			Balancer: middleware.NewRoundRobinBalancer([]*middleware.ProxyTarget{
+				{
+					Name: "React",
+					URL:  reactUrl,
+				},
+			}),
+		}
+		ec.Use(middleware.ProxyWithConfig(cfg))
 	} else {
-		// trying to load a session from user's request
-		var userSession UserSession
-		err := session.Load(&userSession, writer, request)
-		if err != nil {
-			internal.ResponseInternalError(writer, err)
-			return
+		// otherwise use embedded statics
+		ec.Use(middleware.Static(path.Join("ui", "build")))
+	}
+
+	// everything else is restricted
+	api := ec.Group("/api")
+	api.Use(middleware.JWT([]byte(handlers.LoginSecretKey)))
+
+	// ---- ALL API ENDPOINTS ARE DEFINED HERE !!! ----
+	api.GET("/orders", handlers.GetOrders)
+	api.GET("/orders/small/build", handlers.GetSmallToBuildOrders)
+	api.PUT("/orders/small/build", handlers.PutSmallToBuildOrders)
+	// ------------------------------------------------
+
+	// start server
+	go func() {
+		if err := ec.Start(":" + strconv.Itoa(port)); err != nil {
+			log.Println("shutting down the server")
 		}
+	}()
 
-		currentUser := request.FormValue("login")
-		passw := request.FormValue("password")
-		address, apiKey, err := internal.AuthorizeUser(currentUser, passw)
-		if err != nil {
-			// incorrect login or password
-			internal.ResponseForbidden(writer, err)
-			return
-		}
+	// -- below is just some graceful stop stuff
 
-		// seems good. we can save the session now
-		userSession.CurrentUser = currentUser
-		userSession.ApiKey = apiKey
-		err = session.Save(userSession, writer, request)
-		if err != nil {
-			internal.ResponseInternalError(writer, err)
-			return
-		}
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 10 seconds.
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
 
-		http.Redirect(writer, request, "/"+address, http.StatusFound)
+	// stop all app related jobs like db connections
+	appCancel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// jobsQuit <- struct{}{}
+	if err := ec.Shutdown(ctx); err != nil {
+		log.Fatal(err)
 	}
+
+	time.Sleep(2 * time.Second)
 }
 
-func handleOrders(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "orders.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handleBigOrder(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "big.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handleSmallOrder(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "small.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handlePallet(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "o-pallet.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handleShipment(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "shipment.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handleShipmentPallet(writer http.ResponseWriter, request *http.Request) {
-	err := tmpl.ExecuteTemplate(writer, "s-pallet.html", nil)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-}
-func handleAdmin(writer http.ResponseWriter, request *http.Request) {
-	// trying to load a session from user's request
-	var userSession UserSession
-	err := session.Load(&userSession, writer, request)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-
-	if userSession.ApiKey == "admin" {
-		data, err := internal.FormData()
-		if err != nil {
-			internal.ResponseInternalError(writer, err)
-			return
-		}
-
-		err = tmpl.ExecuteTemplate(writer, "admin.html", data)
-		if err != nil {
-			internal.ResponseInternalError(writer, err)
-			return
-		}
-	} else {
-		http.Redirect(writer, request, "/login", http.StatusFound)
-	}
-}
-
-func handleAdminNewUser(writer http.ResponseWriter, request *http.Request) {
-	// trying to load a session from user's request
-	var userSession UserSession
-	err := session.Load(&userSession, writer, request)
-	if err != nil {
-		internal.ResponseInternalError(writer, err)
-		return
-	}
-
-	if request.Method == "POST" {
-		if userSession.ApiKey == "admin" {
-			role := 0
-			switch request.FormValue("role") {
-			case "0":
-				role = 0
-				break
-			case "1":
-				role = 1
-				break
-			case "2":
-				role = 2
-				break
-
-			}
-			log.Println(role)
-
-			_, err := internal.AddUser(request.FormValue("login"), request.FormValue("password"), role)
-			if err != nil {
-				internal.ResponseInternalError(writer, err)
-				return
-			}
-			http.Redirect(writer, request, "/admin", http.StatusFound)
-		} else {
-			http.Redirect(writer, request, "/admin", http.StatusFound)
-		}
-	}
-}
-
-
-func createFirstAdmin() error {
-	defer internal.CloseAllDB()
-	u := internal.User{
-		Login:    "admin",
-		Role: 0,
-		Password: "admin",
-	}
-	err := pudge.Set(path.Join(".", "db", "users"), u.Login, u)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+//
+// func handleRoot(writer http.ResponseWriter, request *http.Request){
+// 	http.Redirect(writer, request, "/login", http.StatusFound)
+// }
+//
+// func handleLogin(writer http.ResponseWriter, request *http.Request) {
+// 	if request.Method != "GET" {
+// 		err := errors.New("don't do it")
+// 		db.ResponseForbidden(writer, err)
+// 		return
+// 	}
+// 	err := tmpl.ExecuteTemplate(writer, "login.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+//
+// func handlerLoginCheck(writer http.ResponseWriter, request *http.Request) {
+// 	if request.Method == "GET" {
+// 		http.Redirect(writer, request, "/login", http.StatusFound)
+// 	} else {
+// 		// trying to load a session from user's request
+// 		var userSession UserSession
+// 		err := session.Load(&userSession, writer, request)
+// 		if err != nil {
+// 			db.ResponseInternalError(writer, err)
+// 			return
+// 		}
+//
+// 		currentUser := request.FormValue("login")
+// 		passw := request.FormValue("password")
+// 		address, apiKey, err := db.AuthorizeUser(currentUser, passw)
+// 		if err != nil {
+// 			// incorrect login or password
+// 			db.ResponseForbidden(writer, err)
+// 			return
+// 		}
+//
+// 		// seems good. we can save the session now
+// 		userSession.CurrentUser = currentUser
+// 		userSession.ApiKey = apiKey
+// 		err = session.Save(userSession, writer, request)
+// 		if err != nil {
+// 			db.ResponseInternalError(writer, err)
+// 			return
+// 		}
+//
+// 		http.Redirect(writer, request, "/"+address, http.StatusFound)
+// 	}
+// }
+//
+// func handleOrders(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "orders.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handleBigOrder(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "big.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handleSmallOrder(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "small.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handlePallet(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "o-pallet.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handleShipment(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "shipment.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handleShipmentPallet(writer http.ResponseWriter, request *http.Request) {
+// 	err := tmpl.ExecuteTemplate(writer, "s-pallet.html", nil)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+// }
+// func handleAdmin(writer http.ResponseWriter, request *http.Request) {
+// 	// trying to load a session from user's request
+// 	var userSession UserSession
+// 	err := session.Load(&userSession, writer, request)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+//
+// 	if userSession.ApiKey == "admin" {
+// 		data, err := db.FormData()
+// 		if err != nil {
+// 			db.ResponseInternalError(writer, err)
+// 			return
+// 		}
+//
+// 		err = tmpl.ExecuteTemplate(writer, "admin.html", data)
+// 		if err != nil {
+// 			db.ResponseInternalError(writer, err)
+// 			return
+// 		}
+// 	} else {
+// 		http.Redirect(writer, request, "/login", http.StatusFound)
+// 	}
+// }
+//
+// func handleAdminNewUser(writer http.ResponseWriter, request *http.Request) {
+// 	// trying to load a session from user's request
+// 	var userSession UserSession
+// 	err := session.Load(&userSession, writer, request)
+// 	if err != nil {
+// 		db.ResponseInternalError(writer, err)
+// 		return
+// 	}
+//
+// 	if request.Method == "POST" {
+// 		if userSession.ApiKey == "admin" {
+// 			role := 0
+// 			switch request.FormValue("role") {
+// 			case "0":
+// 				role = 0
+// 				break
+// 			case "1":
+// 				role = 1
+// 				break
+// 			case "2":
+// 				role = 2
+// 				break
+//
+// 			}
+// 			log.Println(role)
+//
+// 			_, err := db.AddUser(request.FormValue("login"), request.FormValue("password"), role)
+// 			if err != nil {
+// 				db.ResponseInternalError(writer, err)
+// 				return
+// 			}
+// 			http.Redirect(writer, request, "/admin", http.StatusFound)
+// 		} else {
+// 			http.Redirect(writer, request, "/admin", http.StatusFound)
+// 		}
+// 	}
+// }
+//
+//
+// func createFirstAdmin() error {
+// 	defer db.CloseAllDB()
+// 	u := db.User{
+// 		Login:    "admin",
+// 		Role: 0,
+// 		Password: "admin",
+// 	}
+// 	err := pudge.Set(path.Join(".", "db", "users"), u.Login, u)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
