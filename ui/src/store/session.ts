@@ -1,7 +1,7 @@
-import {makeAutoObservable} from "mobx";
+import {makeAutoObservable, runInAction} from "mobx";
 import * as auth from "../api/auth";
 import * as orders from "../api/orders";
-import {Orders} from "../api/orders";
+import {OrdersModel} from "../api/orders";
 
 const storageKey = "user";
 
@@ -33,7 +33,9 @@ export class Session {
         this.loggedUser = val;
     }
 
-    orders: Orders | null = null;
+    currentDate: string = "";
+
+    ordersToBuild: OrdersModel[] | null = null;
 
     constructor() {
         makeAutoObservable(this);
@@ -51,6 +53,13 @@ export class Session {
         } catch (ex) {
             localStorage.removeItem(storageKey);
         }
+
+        setInterval(() => {
+            const n = new Date();
+            this.currentDate = `${n.getDate()}.${n.getMonth()}.${n.getFullYear()} ${n.getHours()}:${n.getMinutes()}`;
+        }, 1000);
+
+        this.fetchOrdersToBuild().catch(console.error);
     }
 
     async login(login: string, password: string): Promise<boolean> {
@@ -69,7 +78,7 @@ export class Session {
         this.currentUser = null;
     }
 
-    async fetchOrders(): Promise<void> {
-        this.orders = await orders.getOrders(this);
+    async fetchOrdersToBuild(): Promise<void> {
+        this.ordersToBuild = await orders.getOrdersToBuild(this);
     }
 }
