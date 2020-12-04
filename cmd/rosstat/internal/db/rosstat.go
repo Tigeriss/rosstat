@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	_ "github.com/lib/pq"
 	"log"
+	"rosstat/cmd/rosstat/internal/handlers"
 	"strconv"
 	"strings"
 )
@@ -31,13 +32,144 @@ type Order struct {
 	Customer          string        `db:"customer" json:"customer"`
 	OrderName         string        `db:"order_name" json:"order_name"`
 	Address           string        `db:"address" json:"address"`
-	GoodsInBigOrder   []GoodOrdered `db:"goods_in_big_order" json:"goods_big_in_order"`
-	GoodsInSmallOrder []GoodOrdered `db:"goods_in_small_order" json:"goods_small_in_order"`
-	Boxes             int           `db:"boxes" json:"boxes"`
-	Pallets           int           `db:"pallets" json:"pallets"`
 }
 
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
+
+
+func GetAllOrdersForCompletion()([]handlers.OrdersModel,error){
+	var result []handlers.OrdersModel
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return nil, err
+	}
+	defer db.Close()
+	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false;"
+	rows, err := db.Query(statementGetOrders)
+	if err != nil {
+		log.Println("error query statementGetOrders - select all orders")
+	}
+
+	var index = 1
+	for rows.Next(){
+
+		order := Order{}
+		rows.Scan(&order)
+		log.Println(order.NumOrder)
+
+		boxes, err := getBoxesAmountForOrder(order.Id)
+		if err != nil {
+			log.Println("error get amount of box for order: " + err.Error())
+		}
+
+		pallets, err := getPalletsAmountForOrder(order.Id)
+		if err != nil {
+			log.Println("error get amount of pallets for order: " + err.Error())
+		}
+
+		smallBoxes, err := getSmallBoxesAmountForOrder(order.Id)
+		if err != nil {
+			log.Println("error get amount of combined boxes for order: " + err.Error())
+		}
+
+		tmp := handlers.OrdersModel{
+			ID:            order.Id,
+			Num:           index,
+			OrderCaption:  order.NumOrder + "-" + order.OrderName,
+			Customer:      order.Customer,
+			Address:       order.Address,
+			Run:           order.Run,
+			AmountPallets: 0,
+			AmountBoxes:   0,
+			SubOrders:   []handlers.SubOrderModel{
+				{
+					IsSmall:       false,
+					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
+					AmountPallets: pallets,
+					AmountBoxes:   boxes,
+				},
+				{
+					IsSmall:       true,
+					OrderCaption:  order.NumOrder + "-" + order.OrderName + " сборные",
+					AmountPallets: 0,
+					AmountBoxes:   smallBoxes,
+				},
+			},
+		}
+		result = append(result, tmp)
+		index++
+	}
+	return result, nil
+}
+func getBoxesAmountForOrder(orderId int) (int,error){
+	var boxes = 0
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return 0, err
+	}
+	defer db.Close()
+
+	statement := "select count(id) from rosstat.boxes where pallet_id in " +
+		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of boxes for order: " + err.Error())
+	}
+	for rows.Next(){
+		rows.Scan(&boxes)
+	}
+
+	return boxes, nil
+}
+
+func getPalletsAmountForOrder(orderId int) (int,error){
+	var pallets = 0
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return 0, err
+	}
+	defer db.Close()
+
+	statement := "select count(id) from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of pallets for order: " + err.Error())
+	}
+	for rows.Next(){
+		rows.Scan(&pallets)
+	}
+
+	return pallets, nil
+}
+
+func getSmallBoxesAmountForOrder(orderId int) (int,error){
+	var boxes = 0
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return 0, err
+	}
+	defer db.Close()
+
+	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ");"
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of small boxes for order: " + err.Error())
+	}
+	for rows.Next(){
+		rows.Scan(&boxes)
+	}
+
+	return boxes, nil
+}
+
+
+
+
 
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
