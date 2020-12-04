@@ -1,7 +1,7 @@
 import {makeAutoObservable, runInAction} from "mobx";
 import * as auth from "../api/auth";
 import * as orders from "../api/orders";
-import {OrdersModel} from "../api/orders";
+import {BigOrdersModel, OrdersModel} from "../api/orders";
 
 const storageKey = "user";
 
@@ -10,7 +10,7 @@ export class User {
     role: string;
     token: string;
 
-    constructor({login, role, token}: {login: string, role: string, token: string}) {
+    constructor({login, role, token}: { login: string, role: string, token: string }) {
         this.login = login;
         this.role = role;
         this.token = token;
@@ -40,6 +40,8 @@ export class Session {
     currentDate: string = formatDate();
 
     ordersToBuild: OrdersModel[] | null = null;
+
+    currentBigOrder: BigOrdersModel[] = [];
 
     constructor() {
         makeAutoObservable(this);
@@ -84,5 +86,13 @@ export class Session {
 
     async fetchOrdersToBuild(): Promise<void> {
         this.ordersToBuild = await orders.getOrdersToBuild(this);
+    }
+
+    async fetchBigOrdersToBuild(id: number): Promise<void> {
+        this.currentBigOrder = await orders.getBigOrdersToBuild(this, id);
+    }
+
+    findOrder(id: number): OrdersModel | null {
+        return (this.ordersToBuild ?? []).find(o => o.id === id) ?? null;
     }
 }

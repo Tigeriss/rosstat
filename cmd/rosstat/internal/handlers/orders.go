@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 )
@@ -114,6 +115,51 @@ func GetToBuildOrders(c echo.Context) error {
 					AmountBoxes:   0,
 				},
 			},
+		},
+	}
+
+	return ctx.JSON(http.StatusOK, result)
+}
+
+// GET /orders/big/build - used by /orders/big page
+
+type BigOrdersModel struct {
+	FormName string `json:"form_name"`
+	Total    int    `json:"total"`
+	Built    int    `json:"built"`
+}
+
+func GetBigToBuildOrders(c echo.Context) error {
+	ctx := c.(*RosContext)
+	orderID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	// remove it
+	orderID = orderID
+
+	// get the data by orderID
+	result := []BigOrdersModel{
+		{
+			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
+			Total:    10,
+			Built:    4,
+		},
+		{
+			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
+			Total:    0,
+			Built:    0,
+		},
+		{
+			FormName: "Форма №1. Записная книжечка Выгебало",
+			Total:    0,
+			Built:    0,
+		},
+		{
+			FormName: "Форма №1. Записная книжечка кадавра",
+			Total:    14,
+			Built:    3,
 		},
 	}
 
