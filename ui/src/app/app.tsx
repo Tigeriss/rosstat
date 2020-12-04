@@ -44,10 +44,10 @@ function AuthRouter() {
             <Route path="/logout">
                 <Logout/>
             </Route>
-            <Route path="/orders/big">
+            <Route path="/orders/big/:id">
                 <OrdersBigPage />
             </Route>
-            <Route path="/orders/small">
+            <Route path="/orders/small/:id">
                 <OrdersSmallPage />
             </Route>
             <Route path="/orders/pallet">

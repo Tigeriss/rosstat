@@ -17,6 +17,10 @@ export class User {
     }
 }
 
+function formatDate(d: Date = new Date()) {
+    return `${d.getDate()}.${d.getMonth()}.${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}`;
+}
+
 export class Session {
     private loggedUser: User | null = null;
 
@@ -33,12 +37,16 @@ export class Session {
         this.loggedUser = val;
     }
 
-    currentDate: string = "";
+    currentDate: string = formatDate();
 
     ordersToBuild: OrdersModel[] | null = null;
 
     constructor() {
         makeAutoObservable(this);
+
+        setInterval(() => {
+            this.currentDate = formatDate();
+        }, 1000);
 
         const loggedUser = localStorage.getItem(storageKey);
         if (loggedUser == null) {
@@ -54,11 +62,6 @@ export class Session {
             localStorage.removeItem(storageKey);
         }
 
-        setInterval(() => {
-            const n = new Date();
-            this.currentDate = `${n.getDate()}.${n.getMonth()}.${n.getFullYear()} ${n.getHours()}:${n.getMinutes()}`;
-        }, 1000);
-
         this.fetchOrdersToBuild().catch(console.error);
     }
 
@@ -67,6 +70,7 @@ export class Session {
             const res = await auth.login(this, login, password);
             if (res.token != null) {
                 this.currentUser = res;
+                this.fetchOrdersToBuild().catch(console.error);
                 return true;
             }
         } catch (ex) {
