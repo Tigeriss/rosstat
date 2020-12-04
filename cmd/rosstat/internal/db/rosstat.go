@@ -1,6 +1,8 @@
 package db
 
 import (
+	"database/sql"
+	_ "github.com/lib/pq"
 	"log"
 	"strconv"
 	"strings"
@@ -35,6 +37,8 @@ type Order struct {
 	Pallets           int           `db:"pallets" json:"pallets"`
 }
 
+var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
+
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
@@ -52,13 +56,12 @@ func PutSmallOrderToDB(orderId int, boxIds []int, userName string) (int, error) 
 		return 0, err
 	}
 
-	statementUpdate := "update rosstat.rosstat_orders set "
-	for i := 1; i < 27; i++ {
-		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " + strconv.Itoa(complectedGoods[i-1]) + ", "
+	err = updateDataInRosstatOrdersWithPieces(complectedGoods)
+
+	if err != nil {
+		log.Println("can't update order with small suborder: " + err.Error())
+		return 0, err
 	}
-	statementUpdate = strings.TrimRight(statementUpdate, ",")
-	statementUpdate += ";"
-	// TODO: run statement Error check!!!
 
 	return len(boxIds), nil
 }
@@ -94,9 +97,23 @@ func GetOrderListForWholeBoxes(orderId int) ([]GoodOrdered, error) {
 	var result []GoodOrdered
 	for i := 0; i < 26; i++ {
 		tmp := GoodOrdered{}
-		tmp.Good = GetProductByBoxID(i + 1)
+		tmp.Good = GetProductByType(i + 1)
 		amount := 0
-		// TODO: select strconv.Itoa(i+1) from rosstat.rosstat_orders where id = orderId. Put result into amount  Error check!!!
+		str := "select \"" + strconv.Itoa(i+1) + "\" from rosstat.rosstat_orders where id=" + strconv.Itoa(orderId) + ";"
+		log.Println(str)
+		db, err := sql.Open("postgres", connStr)
+		if err != nil {
+			log.Println("error establish connection: " + err.Error())
+			return nil, err
+		}
+		rows, err := db.Query(str)
+		for rows.Next() {
+			err = rows.Scan(&amount)
+			if err != nil {
+				log.Println("error scan row: " + err.Error())
+				return nil, err
+			}
+		}
 		tmp.Amount = GetWholeBoxesOfThisProduct(tmp.Good, amount) // here we get amount of boxes of this product!
 		result = append(result, tmp)
 	}
@@ -131,6 +148,7 @@ func GetWholeBoxesOfThisProduct(product Good, totalAmount int) int {
 
 // get amount of pieces of particular good for combined box
 func GetPiecesOfThisProduct(product Good, totalAmount int) int {
+	log.Println("total: " + strconv.Itoa(totalAmount) + ", Amount in a box: " + strconv.Itoa(product.AmountInBox))
 	return totalAmount % product.AmountInBox
 }
 
@@ -337,6 +355,180 @@ func GetProductByBoxID(id int) Good {
 	return result
 }
 
+func GetProductByType(t int) Good {
+	result := Good{
+	}
+
+	switch t {
+	case 1:
+		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
+		result.Run = 476596
+		result.AmountInBox = 20
+		result.Num = "1"
+		break
+	case 2:
+		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
+		result.Run = 65357
+		result.AmountInBox = 50
+		result.Num = "2"
+		break
+	case 3:
+		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
+		result.Run = 6023
+		result.AmountInBox = 50
+		result.Num = "3"
+		break
+	case 4:
+		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
+		result.Run = 57930
+		result.AmountInBox = 1000
+		result.Num = "4"
+		break
+	case 5:
+		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
+		result.Run = 10459
+		result.AmountInBox = 1000
+		result.Num = "5"
+		break
+	case 6:
+		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
+		result.Run = 61459
+		result.AmountInBox = 500
+		result.Num = "6"
+		break
+	case 7:
+		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
+		result.Run = 28419540
+		result.AmountInBox = 2000
+		result.Num = "7"
+		break
+	case 8:
+		result.Name = "Форма № 9. Ярлык в портфель переписчика"
+		result.Run = 18812
+		result.AmountInBox = 8000
+		result.Num = "8"
+		break
+	case 9:
+		result.Name = "Форма № 10. Карточка для респондентов"
+		result.Run = 392150
+		result.AmountInBox = 2000
+		result.Num = "9"
+		break
+	case 10:
+		result.Name = "Форма Обложка. Обложка на переписные документы"
+		result.Run = 2287448
+		result.AmountInBox = 500
+		result.Num = "10"
+		break
+	case 11:
+		result.Name = "Форма С. Список лиц"
+		result.Run = 2287448
+		result.AmountInBox = 1000
+		result.Num = "11"
+		break
+	case 12:
+		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
+		result.Run = 790907
+		result.AmountInBox = 2000
+		result.Num = "12"
+
+		break
+	case 13:
+		result.Name = "Форма СПР. Справка о прохождении переписи"
+		result.Run = 10136033
+		result.AmountInBox = 8000
+		result.Num = "13"
+		break
+	case 14:
+		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
+		result.Run = 1652
+		result.AmountInBox = 40
+		result.Num = "14"
+		break
+	case 15:
+		result.Name = "Тесты для обучения переписного персонала"
+		result.Run = 495982
+		result.AmountInBox = 100
+		result.Num = "15"
+		break
+	case 16:
+		result.Name = "Указатели для переписных участков"
+		result.Run = 32689
+		result.AmountInBox = 500
+		result.Num = "16"
+		break
+	case 17:
+		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
+		result.Run = 2082395
+		result.AmountInBox = 1000
+		result.Num = "17"
+		break
+	case 18:
+		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
+		result.Run = 832958
+		result.AmountInBox = 1000
+		result.Num = "18"
+		break
+	case 19:
+		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
+		result.Run = 416479
+		result.AmountInBox = 1000
+		result.Num = "19"
+		break
+	case 20:
+		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
+		result.Run = 416479
+		result.AmountInBox = 1000
+		result.Num = "20"
+		break
+	case 21:
+		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
+		result.Run = 1652
+		result.AmountInBox = 500
+		result.Num = "21"
+		break
+	case 22:
+		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
+		result.Run = 1652
+		result.AmountInBox = 1000
+		result.Num = "22"
+		break
+	case 23:
+		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
+		result.Run = 8260
+		result.AmountInBox = 1000
+		result.Num = "23"
+		break
+	case 24:
+		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
+		result.Run = 1652
+		result.AmountInBox = 1000
+		result.Num = "24"
+		break
+	case 25:
+		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
+		result.Run = 1652
+		result.AmountInBox = 1000
+		result.Num = "25"
+		break
+	case 26:
+		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
+		result.Run = 1652
+		result.AmountInBox = 1000
+		result.Num = "26"
+		break
+	case 27:
+		result.Name = "Сборный короб"
+		result.Run = 0
+		result.AmountInBox = 0
+		result.Num = "27"
+		break
+
+	}
+
+	return result
+}
+
 // put data in rosstat.boxes
 func createBoxesRecord(palletId int, boxes []int, userName string) error {
 	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, user_name
@@ -368,6 +560,13 @@ func updateDataInRosstatOrdersWithBoxes() error {
 }
 
 // subtract collected pieces of goods from order
-func updateDataInRosstatOrdersWithPieces() error {
+func updateDataInRosstatOrdersWithPieces(complectedGoods [26]int) error {
+	statementUpdate := "update rosstat.rosstat_orders set "
+	for i := 1; i < 27; i++ {
+		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " + strconv.Itoa(complectedGoods[i-1]) + ", "
+	}
+	statementUpdate = strings.TrimRight(statementUpdate, ",")
+	statementUpdate += ";"
+	// TODO: run statement Error check!!!
 	return nil
 }
