@@ -49,14 +49,6 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 
 	var result []OrdersModel
 
-	// db, err := sql.Open("postgres", connStr)
-	// if err != nil {
-	// 	log.Println("error establish connection: " + err.Error())
-	// 	return nil, err
-	// }
-	//
-	// defer db.Close()
-
 	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false;"
 	rows, err := db.Query(statementGetOrders)
 	if err != nil {
@@ -95,8 +87,8 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 			Customer:      order.Customer,
 			Address:       order.Address,
 			Run:           order.Run,
-			AmountPallets: 0,
-			AmountBoxes:   0,
+			AmountPallets: pallets,
+			AmountBoxes:   boxes+smallBoxes,
 			SubOrders: []SubOrderModel{
 				{
 					IsSmall:       false,
