@@ -4,8 +4,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	"github.com/recoilme/pudge"
 )
 
 func ResponseForbidden(writer http.ResponseWriter, err error) {
@@ -31,12 +29,5 @@ func ResponseInternalError(writer http.ResponseWriter, err error) {
 	_, err = io.WriteString(writer, "InternalError: " + err.Error())
 	if err != nil {
 		log.Printf("unable to send internal error response: %s\n", err)
-	}
-}
-
-func CloseAllDB() {
-	err := pudge.CloseAll()
-	if err != nil {
-		log.Printf("unable to close pudge: %s\n", err)
 	}
 }

@@ -99,6 +99,9 @@ func main() {
 	api.GET("/shipment/ready", handlers.GetReadyForShipment)
 	api.GET("/shipment/pallet/:id", handlers.GetPalletShipment)
 	api.POST("/shipment/pallet/:id/finish", handlers.FinishPalletShipment)
+	api.GET("/admin/users", handlers.GetUsers)
+	api.POST("/admin/users", handlers.AddUser)
+	api.DELETE("/admin/users/:login", handlers.DeleteUser)
 	// ------------------------------------------------
 
 	// start server
