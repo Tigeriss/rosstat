@@ -40,7 +40,7 @@ func GetBigToBuildOrders(c echo.Context) error {
 	}
 
 	// get the data by orderID
-	result, err := db.GetOrderListForBigSuborder(orderID)
+	result, err := db.GetOrderListForBigSuborder(ctx.DB(), orderID)
 	if err != nil {
 		log.Println("error GetOrderListForBigSuborder: " + err.Error())
 		return err
@@ -58,7 +58,7 @@ func GetSmallToBuildOrders(c echo.Context) error {
 		return err
 	}
 	// get the data by orderID
-	result, err := db.GetOrderListForSmallSuborder(orderID)
+	result, err := db.GetOrderListForSmallSuborder(ctx.DB(), orderID)
 	if err != nil {
 		log.Println("error GetOrderListForSmallSuborder: " + err.Error())
 		return err
@@ -95,7 +95,7 @@ func GetBigPalletOrders(c echo.Context) error {
 	}
 
 	// get the data by orderID
-	result, err := db.GetOrderListForPallets(orderID)
+	result, err := db.GetOrderListForPallets(ctx.DB(), orderID)
 	// 	db.BigPalletModel{
 	// 	PalletNum: 3,
 	// 	Types: []db.BigOrdersModel{

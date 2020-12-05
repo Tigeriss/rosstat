@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // good itself. hardcoded because of problems with id
@@ -35,10 +36,17 @@ type Order struct {
 	Address   string `db:"address" json:"address"`
 }
 
-var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
+var traceEnabled = true
+func trace(name string, started time.Time) {
+	if traceEnabled {
+		log.Printf("Call: %s() - %s\n", name, time.Now().Sub(started))
+	}
+}
 
 // for /orders
 func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
+	defer trace("GetAllOrdersForCompletion", time.Now())
+
 	var result []OrdersModel
 
 	// db, err := sql.Open("postgres", connStr)
@@ -65,17 +73,17 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 			return nil, err
 		}
 
-		boxes, err := getCompletedBoxesAmountForOrder(order.Id)
+		boxes, err := getCompletedBoxesAmountForOrder(db, order.Id)
 		if err != nil {
 			log.Println("error get amount of box for order: " + err.Error())
 		}
 
-		pallets, err := getPalletsAmountForOrder(order.Id)
+		pallets, err := getPalletsAmountForOrder(db, order.Id)
 		if err != nil {
 			log.Println("error get amount of pallets for order: " + err.Error())
 		}
 
-		smallBoxes, err := getSmallBoxesAmountForOrder(order.Id)
+		smallBoxes, err := getSmallBoxesAmountForOrder(db, order.Id)
 		if err != nil {
 			log.Println("error get amount of combined boxes for order: " + err.Error())
 		}
@@ -116,19 +124,11 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 }
 
 // for /orders/big
-func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
+func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, error) {
 	var result []BigOrdersModel
 	var amounts [27]int
 
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return nil, err
-	}
-
-	defer db.Close()
-
-	total, err := GetTotalBoxesAmount(orderId)
+	total, err := GetTotalBoxesAmount(db, orderId)
 	if err != nil {
 		log.Println("error get boxes amount for order: " + err.Error())
 		return nil, err
@@ -158,7 +158,7 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 	}
 
 	var allCompletedBoxes [27]int
-	allCompletedBoxIds, err := GetCompletedBoxesAmount(orderId)
+	allCompletedBoxIds, err := GetCompletedBoxesAmount(db, orderId)
 	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
@@ -188,7 +188,7 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 }
 
 // for /orders/small
-func GetOrderListForSmallSuborder(orderId int) ([]BigOrdersModel, error) {
+func GetOrderListForSmallSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, error) {
 	// yep, its copy-paste, but let it be for now
 	var result []BigOrdersModel
 	var amounts [26]int
@@ -198,14 +198,6 @@ func GetOrderListForSmallSuborder(orderId int) ([]BigOrdersModel, error) {
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return nil, err
-	}
-
-	defer db.Close()
 
 	// get total amount of every good type
 	rows, err := db.Query(statement)
@@ -233,7 +225,7 @@ func GetOrderListForSmallSuborder(orderId int) ([]BigOrdersModel, error) {
 		log.Println("error close row: " + err.Error())
 		return result, err
 	}
-	allProductsTotal, err := GetTotalPiecesAmountForOrder(orderId)
+	allProductsTotal, err := GetTotalPiecesAmountForOrder(db, orderId)
 	if err != nil {
 		log.Println("error get total pieces for order: " + err.Error())
 		return result, err
@@ -261,20 +253,13 @@ func GetOrderListForSmallSuborder(orderId int) ([]BigOrdersModel, error) {
 }
 
 // for /orders/pallet
-func GetOrderListForPallets(orderId int) (BigPalletModel, error) {
+func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 	var result BigPalletModel
 	var allPalletsNums []int
 	palNum := 0
 	// get num for pallet:
 	statementGetNum := "select num from rosstat.pallets where order_id = " +
 		strconv.Itoa(orderId) + " order by num desc;"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return BigPalletModel{}, err
-	}
-
-	defer db.Close()
 
 	rows, err := db.Query(statementGetNum)
 	if err != nil {
@@ -297,7 +282,7 @@ func GetOrderListForPallets(orderId int) (BigPalletModel, error) {
 	}
 
 	result.PalletNum = palNum + 1
-	allBoxes, err := GetBoxesToCompleteForOrder(orderId)
+	allBoxes, err := GetBoxesToCompleteForOrder(db, orderId)
 	for i := 0; i < len(allBoxes); i++ {
 		good := GetProductByType(i+1)
 		for s := 0; s < allBoxes[i]; s++ {
@@ -312,23 +297,23 @@ func GetOrderListForPallets(orderId int) (BigPalletModel, error) {
 	return result, nil
 }
 
-func GetBoxesToCompleteForOrder(orderId int) ([]int, error) {
+func GetBoxesToCompleteForOrder(db *sql.DB, orderId int) ([]int, error) {
 	var result []int
 	var totalAmounts []int
 	var completedBoxes []int
 	combinedBoxes := 0
 
-	totalAmounts, err := GetTotalBoxesAmount(orderId)
+	totalAmounts, err := GetTotalBoxesAmount(db, orderId)
 	if err != nil {
 		log.Println("error get total boxes amount: " + err.Error())
 		return nil, err
 	}
-	completedBoxes, err = GetCompletedBoxesAmount(orderId)
+	completedBoxes, err = GetCompletedBoxesAmount(db, orderId)
 	if err != nil {
 		log.Println("error get completed boxes amount: " + err.Error())
 		return nil, err
 	}
-	combinedBoxes, err = getSmallBoxesAmountForOrder(orderId)
+	combinedBoxes, err = getSmallBoxesAmountForOrder(db, orderId)
 	if err != nil {
 		log.Println("error get combined boxes amount: " + err.Error())
 		return nil, err
@@ -342,7 +327,7 @@ func GetBoxesToCompleteForOrder(orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetTotalPiecesAmountForOrder(orderId int) ([]int, error) {
+func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 	var amounts [26]int
 	var result []int
 
@@ -353,14 +338,6 @@ func GetTotalPiecesAmountForOrder(orderId int) ([]int, error) {
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
 	log.Println(statement)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return []int{0}, err
-	}
-
-	defer db.Close()
 
 	// get total amount of every good type
 	rows, err := db.Query(statement)
@@ -396,7 +373,7 @@ func GetTotalPiecesAmountForOrder(orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetTotalBoxesAmount(orderId int) ([]int, error) {
+func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	var amounts [26]int
 	var result []int
 
@@ -407,14 +384,6 @@ func GetTotalBoxesAmount(orderId int) ([]int, error) {
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
 	// log.Println(statement)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return []int{0}, err
-	}
-
-	defer db.Close()
 
 	// get total amount of every good type
 	rows, err := db.Query(statement)
@@ -450,17 +419,10 @@ func GetTotalBoxesAmount(orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetCompletedBoxesAmount(orderId int) ([]int, error) {
+func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	var result []int
 	statement := "select id from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return nil, err
-	}
-
-	defer db.Close()
 
 	rows, err := db.Query(statement)
 	if err != nil {
@@ -484,14 +446,10 @@ func GetCompletedBoxesAmount(orderId int) ([]int, error) {
 	return result, nil
 }
 
-func getCompletedBoxesAmountForOrder(orderId int) (int, error) {
+func getCompletedBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
+	// defer trace("getCompletedBoxesAmountForOrder", time.Now())
+
 	var boxes = 0
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return 0, err
-	}
-	defer db.Close()
 
 	statement := "select count(id) from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
@@ -506,14 +464,10 @@ func getCompletedBoxesAmountForOrder(orderId int) (int, error) {
 	return boxes, nil
 }
 
-func getPalletsAmountForOrder(orderId int) (int, error) {
+func getPalletsAmountForOrder(db *sql.DB, orderId int) (int, error) {
+	// defer trace("getPalletsAmountForOrder", time.Now())
+
 	var pallets = 0
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return 0, err
-	}
-	defer db.Close()
 
 	statement := "select count(id) from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ";"
 	rows, err := db.Query(statement)
@@ -527,14 +481,10 @@ func getPalletsAmountForOrder(orderId int) (int, error) {
 	return pallets, nil
 }
 
-func getSmallBoxesAmountForOrder(orderId int) (int, error) {
+func getSmallBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
+	// defer trace("getSmallBoxesAmountForOrder", time.Now())
+
 	var boxes = 0
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return 0, err
-	}
-	defer db.Close()
 
 	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
 	rows, err := db.Query(statement)
@@ -552,6 +502,7 @@ func getSmallBoxesAmountForOrder(orderId int) (int, error) {
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
 func PutSmallOrderToDB(orderId int, boxIds []int, userName string) (int, error) {
+	// defer trace("PutSmallOrderToDB", time.Now())
 
 	err := createSmallBoxesRecord(orderId, boxIds, userName)
 	if err != nil {
