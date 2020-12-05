@@ -142,9 +142,9 @@ func GetSmallToBuildOrders(c echo.Context) error {
 	orderID = orderID
 
 	// get the data by orderID
-	result, err := db.GetOrderListForBigSuborder(orderID)
+	result, err := db.GetOrderListForSmallSuborder(orderID)
 	if err != nil {
-		log.Println("error GetOrderListForBigSuborder: " + err.Error())
+		log.Println("error GetOrderListForSmallSuborder: " + err.Error())
 		return err
 	}
 	// 	[]db.BigOrdersModel{
