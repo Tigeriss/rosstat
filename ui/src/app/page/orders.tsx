@@ -10,7 +10,7 @@ import {Session} from "../../store/session";
 function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: OrdersModel) {
     const rows = [<Table.Row warning onClick={() => session.openedOrders[order.id] = !session.openedOrders[order.id]} key={order.id}>
         <Table.Cell width="1">{order.num}</Table.Cell>
-        <Table.Cell width="3">{order.order_caption}</Table.Cell>
+        <Table.Cell width="3" singleLine>{order.order_caption}</Table.Cell>
         <Table.Cell width="2">{order.customer}</Table.Cell>
         <Table.Cell width="3">{order.address}</Table.Cell>
         <Table.Cell width="1">{order.run}</Table.Cell>
@@ -54,7 +54,7 @@ export function OrdersPage() {
         <Layout>
             <Header>Комплектование</Header>
 
-            <Table celled selectable singleLine>
+            <Table celled selectable>
                 <Table.Header>
                     <Table.Row>
                         <Table.HeaderCell>№</Table.HeaderCell>
