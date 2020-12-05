@@ -284,7 +284,38 @@ func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
 	return result, nil
 }
 
+// for /orders/big/pallet
+func GetOrderListForPallets(orderId int)(BigPalletModel,error){
+	var result BigPalletModel
+	palNum := 0
+	// get num for pallet:
+	statementGetNum := "select max(num) from rosstat.pallets where order_id = " +
+		strconv.Itoa(orderId) + ";"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return BigPalletModel{}, err
+	}
 
+	defer db.Close()
+
+	rows, err := db.Query(statementGetNum)
+	if err != nil {
+		log.Println("error query statementGetNum - select last pallet num")
+		return BigPalletModel{}, err
+	}
+
+	for rows.Next(){
+		err = rows.Scan(&palNum)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return BigPalletModel{}, err
+		}
+	}
+	result.PalletNum = palNum + 1
+
+	return result, nil
+}
 
 func GetTotalPiecesAmountForOrder(orderId int) ([]int, error){
 	var amounts [26]int
@@ -394,6 +425,7 @@ func GetTotalBoxesAmount(orderId int)([]int,error){
 	return result, nil
 }
 
+// TODO: optimise
 func GetCompletedBoxesAmountOfCertainProduct(orderId, productType int) (int, error) {
 	good := GetProductByType(productType)
 	result := 0
