@@ -93,6 +93,7 @@ func main() {
 	api.GET("/orders/small/build/:id", handlers.GetSmallToBuildOrders)
 	api.POST("/orders/small/build/:id/finish", handlers.FinishSmallToBuildOrders)
 	api.GET("/orders/big/pallet/:id", handlers.GetBigPalletOrders)
+	api.GET("/orders/big/pallet/:id/num/:num", handlers.GetBigPalletNum)
 	api.GET("/orders/big/pallet/:id/barcode/:barcode", handlers.GetBigPalletBarcodeOrders)
 	api.POST("/orders/big/pallet/:id/finish", handlers.FinishBigPalletOrders)
 	api.GET("/shipment/ready", handlers.GetReadyForShipment)

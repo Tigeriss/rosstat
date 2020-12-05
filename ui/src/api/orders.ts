@@ -83,3 +83,23 @@ export async function getBigPalletBarcode(session: Session, id: number, barcode:
 export async function finishBigPallet(session: Session, id: number, req: BigPalletFinishRequestModel): Promise<BigPalletFinishResponseModel> {
     return await request(session, `orders/big/pallet/${id}/finish`, req);
 }
+
+export interface PrintPalletRegisterModel {
+    num_pp: number;
+    position: string;
+    amount: number;
+    boxes: number;
+}
+
+export interface PrintPalletModel {
+    order_caption: string;
+    address: string;
+    provider: string;
+    contract_number: string;
+    barcode: string;
+    register: PrintPalletRegisterModel[];
+}
+
+export async function getPrintPallet(session: Session, id: number, num: number): Promise<PrintPalletModel> {
+    return await request(session, `orders/big/pallet/${id}/num/${num}`, {}, "GET");
+}

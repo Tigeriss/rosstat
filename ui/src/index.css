@@ -8,3 +8,27 @@ body {
     height: 100%;
     overflow-y: scroll;
 }
+
+body.print {
+    background: transparent !important;
+    overflow-y: auto !important;
+}
+
+table.print {
+    width: 100%;
+}
+
+table.print, table.print th {
+    border: 2px solid black;
+    border-collapse: collapse;
+    padding: 11px;
+    font-size: 1.2em;
+}
+
+table.print td {
+    border-left: 2px solid black;
+    border-right: 2px solid black;
+    border-collapse: collapse;
+    padding: 11px;
+    font-size: 1.2em;
+}

@@ -5,6 +5,10 @@ import 'semantic-ui-css/semantic.min.css';
 import "./index.css";
 import { configure } from "mobx"
 
+if (window.location.pathname.includes("/print/")) {
+    document.body.className = "print";
+}
+
 configure({
     enforceActions: "never",
 })

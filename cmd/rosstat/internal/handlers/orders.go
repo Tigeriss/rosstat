@@ -241,6 +241,52 @@ func GetBigPalletOrders(c echo.Context) error {
 	return ctx.JSON(http.StatusOK, result)
 }
 
+func GetBigPalletNum(c echo.Context) error {
+	ctx := c.(*RosContext)
+	orderID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	num, err := strconv.Atoi(c.Param("num"))
+	if err != nil {
+		return err
+	}
+
+	log.Println(num)
+	log.Println(orderID)
+
+	result := db.PrintPalletModel{
+		OrderCaption:   "О-20-123-РОССТАТ 2",
+		Address:        "107123, Москва",
+		Provider:       "Жирпром",
+		ContractNumber: "123-53322",
+		Barcode:        "111222333",
+		Register:       []db.PrintPalletRegisterModel{
+			{
+				NumPP:    1,
+				Position: "Форма №2. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
+			},
+			{
+				NumPP:    2,
+				Position: "Форма №3. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
+			},
+			{
+				NumPP:    3,
+				Position: "Форма №4. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
+			},
+		},
+	}
+
+	return ctx.JSON(http.StatusOK, result)
+}
+
 // GET /orders/big/pallet/:id/barcode/:barcode
 
 func GetBigPalletBarcodeOrders(c echo.Context) error {

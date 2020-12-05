@@ -17,6 +17,7 @@ import {OrdersSmallPage} from "./page/ordersSmall";
 import {OrdersPalletPage} from "./page/ordersPallet";
 import {ShipmentPage} from "./page/shipment";
 import {ShipmentPalletPage} from "./page/shipmentPallet";
+import { PalletPrint } from "./page/palletPrint";
 
 const SessionContext = React.createContext(session);
 
@@ -39,30 +40,39 @@ function GuestRouter() {
 
 function AuthRouter() {
     return <BrowserRouter>
-        <AppHeader/>
         <Switch>
             <Route path="/logout">
                 <Logout/>
             </Route>
             <Route path="/orders/big/:id">
+                <AppHeader/>
                 <OrdersBigPage />
             </Route>
             <Route path="/orders/small/:id">
+                <AppHeader/>
                 <OrdersSmallPage />
             </Route>
+            <Route path="/orders/pallet/:id/print/:num">
+                <PalletPrint />
+            </Route>
             <Route path="/orders/pallet/:id">
+                <AppHeader/>
                 <OrdersPalletPage />
             </Route>
             <Route path="/orders">
+                <AppHeader/>
                 <OrdersPage />
             </Route>
             <Route path="/shipment/pallet/:id">
+                <AppHeader/>
                 <ShipmentPalletPage />
             </Route>
             <Route path="/shipment">
+                <AppHeader/>
                 <ShipmentPage />
             </Route>
             <Route path="/admin">
+                <AppHeader/>
                 <Admin />
             </Route>
             <Route path="/">
