@@ -21,7 +21,7 @@ import (
 	"rosstat/cmd/rosstat/internal/handlers"
 )
 
-var dbConnStr = "root:whatever@tcp(127.0.0.1:13306)/chat"
+var dbConnStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 var port = 80
 var debugFlag = false
 
@@ -47,7 +47,6 @@ func main() {
 	// some helpful stuff
 	ec.Use(middleware.Recover())
 	ec.Use(middleware.RequestID())
-	ec.Use(handlers.RosContextMiddleware(dbConnStr))
 	ec.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: `REQU[${time_rfc3339}] ${remote_ip} ${status} ${method} ${uri} ${latency_human} ${error}${message}` + "\n",
 	}))
@@ -86,6 +85,7 @@ func main() {
 	// everything else is restricted
 	api := ec.Group("/api")
 	api.Use(middleware.JWT([]byte(handlers.LoginSecretKey)))
+	api.Use(handlers.RosContextMiddleware(dbConnStr))
 
 	// ---- ALL API ENDPOINTS ARE DEFINED HERE !!! ----
 	api.GET("/orders/build", handlers.GetToBuildOrders)

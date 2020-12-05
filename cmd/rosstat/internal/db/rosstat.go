@@ -38,16 +38,16 @@ type Order struct {
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 
 // for /orders
-func GetAllOrdersForCompletion() ([]OrdersModel, error) {
+func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 	var result []OrdersModel
 
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Println("error establish connection: " + err.Error())
-		return nil, err
-	}
-
-	defer db.Close()
+	// db, err := sql.Open("postgres", connStr)
+	// if err != nil {
+	// 	log.Println("error establish connection: " + err.Error())
+	// 	return nil, err
+	// }
+	//
+	// defer db.Close()
 
 	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false;"
 	rows, err := db.Query(statementGetOrders)

@@ -21,8 +21,7 @@ type ReadyToBuild struct {
 
 func GetToBuildOrders(c echo.Context) error {
 	ctx := c.(*RosContext)
-
-	result, err := db.GetAllOrdersForCompletion()
+	result, err := db.GetAllOrdersForCompletion(ctx.DB())
 	if err != nil {
 		log.Println("error get all orders for completion: " + err.Error())
 		return err
