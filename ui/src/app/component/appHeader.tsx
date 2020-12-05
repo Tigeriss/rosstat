@@ -20,9 +20,6 @@ export function AppHeader() {
         </Menu.Item>
 
         <Menu.Menu position='right'>
-            <Menu.Item as={Link} to="/admin" active={location.pathname === "/admin"}>
-                <Icon name="users"/> Пользователи
-            </Menu.Item>
             <Menu.Item onClick={() => session.currentUser = null}>
                 <Icon name="log out"/> Выход
             </Menu.Item>

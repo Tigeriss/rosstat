@@ -9,7 +9,7 @@ import {Admin} from "./page/admin";
 import {AppHeader} from "./component/appHeader";
 import {Login} from "./page/login";
 import {Observer} from "mobx-react";
-import {Session, session} from "../store/session";
+import {Session, session, User} from "../store/session";
 import {Logout} from "./page/logout";
 import {OrdersBigPage} from "./page/ordersBig";
 import {OrdersPage} from "./page/orders";
@@ -38,7 +38,24 @@ function GuestRouter() {
     </BrowserRouter>
 }
 
-function AuthRouter() {
+function AdminRouter() {
+    return <BrowserRouter>
+        <Switch>
+            <Route path="/logout">
+                <Logout/>
+            </Route>
+            <Route path="/admin">
+                <AppHeader/>
+                <Admin />
+            </Route>
+            <Route path="/">
+                <Redirect to="/admin"/>
+            </Route>
+        </Switch>
+    </BrowserRouter>;
+}
+
+function CollectorRouter() {
     return <BrowserRouter>
         <Switch>
             <Route path="/logout">
@@ -63,6 +80,19 @@ function AuthRouter() {
                 <AppHeader/>
                 <OrdersPage />
             </Route>
+            <Route path="/">
+                <Redirect to="/orders"/>
+            </Route>
+        </Switch>
+    </BrowserRouter>;
+}
+
+function StorekeeperRouter() {
+    return <BrowserRouter>
+        <Switch>
+            <Route path="/logout">
+                <Logout/>
+            </Route>
             <Route path="/shipment/pallet/:id">
                 <AppHeader/>
                 <ShipmentPalletPage />
@@ -71,22 +101,28 @@ function AuthRouter() {
                 <AppHeader/>
                 <ShipmentPage />
             </Route>
-            <Route path="/admin">
-                <AppHeader/>
-                <Admin />
-            </Route>
             <Route path="/">
-                <Redirect to="/orders"/>
+                <Redirect to="/shipment"/>
             </Route>
         </Switch>
     </BrowserRouter>;
+}
+
+function router(user: User) {
+    if (user.role === "admin") {
+        return AdminRouter();
+    }
+    if (user.role === "storekeeper") {
+        return StorekeeperRouter();
+    }
+    return CollectorRouter();
 }
 
 export function App() {
     return <SessionContext.Provider value={session}>
         <Observer>{() => session.currentUser == null
             ? <GuestRouter/>
-            : <AuthRouter/>
+            : router(session.currentUser)
         }</Observer>
     </SessionContext.Provider>;
 }

@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/labstack/echo/v4"
+
+	"rosstat/cmd/rosstat/internal/db"
 )
 
 const LoginSecretKey = "pleasechangeme"
@@ -30,7 +33,17 @@ func Login(c echo.Context) error {
 	}
 
 	// replace it with real db
-	if req.Login != "admin" || req.Password != "admin" {
+	user, err := db.GetUser(req.Login)
+	if err != nil {
+		log.Println(err)
+		return echo.ErrUnauthorized
+	}
+
+	if user == nil {
+		return echo.ErrUnauthorized
+	}
+
+	if req.Password != user.Password {
 		return echo.ErrUnauthorized
 	}
 
@@ -39,8 +52,8 @@ func Login(c echo.Context) error {
 
 	// Set claims
 	claims := token.Claims.(jwt.MapClaims)
-	claims["name"] = "Jon Snow"
-	claims["admin"] = true
+	claims["login"] = user.Login
+	claims["role"] = user.Role
 	claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
 
 	// Generate encoded token and send it as response.
@@ -51,7 +64,7 @@ func Login(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, LoginResponse{
 		Login: req.Login,
-		Role:  "admin",
+		Role:  user.Role,
 		Token: t,
 	})
 }

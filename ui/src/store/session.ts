@@ -2,6 +2,7 @@ import {makeAutoObservable, runInAction} from "mobx";
 import * as auth from "../api/auth";
 import * as orders from "../api/orders";
 import * as shipment from "../api/shipment";
+import * as admin from "../api/admin";
 import {
     BigOrdersModel,
     BigPalletBarcodeModel, BigPalletFinishRequestModel,
@@ -35,6 +36,7 @@ export class Session {
     private autoUpdateInterval = null;
 
     preparedBoxes: string[] = [];
+    users: admin.User[] = [];
 
     get currentUser(): User | null {
         return this.loggedUser;
@@ -101,18 +103,27 @@ export class Session {
             return;
         }
         clearInterval(this.autoUpdateInterval as any);
-        // if (this.currentUser?.role === "admin") {
-        //
-        // }
-        this.fetchOrdersToBuild().catch(console.error);
-        this.fetchShipmentReady().catch(console.error);
+        if (this.currentUser?.role === "admin") {
+            return;
+        }
 
-        this.autoUpdateInterval = setInterval(() => {
+        if (this.currentUser?.role === "collector") {
             this.fetchOrdersToBuild().catch(console.error);
+
+            this.autoUpdateInterval = setInterval(() => {
+                this.fetchOrdersToBuild().catch(console.error);
+                this.fetchBigOrdersToBuild().catch(console.error);
+                this.fetchBigPallet().catch(console.error);
+            }, 1000) as any;
+        }
+
+        if (this.currentUser?.role === "storekeeper") {
             this.fetchShipmentReady().catch(console.error);
-            this.fetchBigOrdersToBuild().catch(console.error);
-            this.fetchBigPallet().catch(console.error);
-        }, 1000) as any;
+
+            this.autoUpdateInterval = setInterval(() => {
+                this.fetchShipmentReady().catch(console.error);
+            }, 1000) as any;
+        }
     }
 
     async login(login: string, password: string): Promise<boolean> {
@@ -231,6 +242,21 @@ export class Session {
         }
 
         return shipment.finishPalletShipment(this, this.currentShipmentId);
+    }
+
+    async fetchUsers(): Promise<void> {
+        this.users = await admin.getUsers(this);
+    }
+
+    async addUser(user: admin.User): Promise<void> {
+        await admin.addUser(this, user);
+        this.users.push(user);
+    }
+
+
+    async deleteUser(login: string): Promise<void> {
+        await admin.deleteUser(this, login);
+        this.users = this.users.filter(u => u.login !== login);
     }
 }
 
