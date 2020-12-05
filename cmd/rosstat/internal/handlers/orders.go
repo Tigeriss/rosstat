@@ -30,7 +30,7 @@ func GetToBuildOrders(c echo.Context) error {
 	// result := []db.OrdersModel{
 	// 	{
 	// 		ID:            1,
-	// 		Num:           1,
+	// 		Type:           1,
 	// 		OrderCaption:  "О-20-123-РОССТАТ 2",
 	// 		Customer:      "Росстат",
 	// 		Address:       "107123, Москва",
@@ -54,7 +54,7 @@ func GetToBuildOrders(c echo.Context) error {
 	// 	},
 	// 	{
 	// 		ID:            2,
-	// 		Num:           2,
+	// 		Type:           2,
 	// 		OrderCaption:  "О-22-355-РОССТАТ 1",
 	// 		Customer:      "Росстат",
 	// 		Address:       "107123, Москва",
@@ -94,32 +94,37 @@ func GetBigToBuildOrders(c echo.Context) error {
 	orderID = orderID
 
 	// get the data by orderID
-	result := []db.BigOrdersModel{
-		{
-			Type:     1,
-			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
-			Total:    10,
-			Built:    4,
-		},
-		{
-			Type:     2,
-			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
-			Total:    0,
-			Built:    0,
-		},
-		{
-			Type:     3,
-			FormName: "Форма №1. Записная книжечка Выгебало",
-			Total:    0,
-			Built:    0,
-		},
-		{
-			Type:     4,
-			FormName: "Форма №1. Записная книжечка кадавра",
-			Total:    14,
-			Built:    3,
-		},
+	result, err := db.GetOrderListForBigSuborder(orderID)
+	if err != nil {
+		log.Println("error GetOrderListForBigSuborder: " + err.Error())
+		return err
 	}
+	// 	[]db.BigOrdersModel{
+	// 	{
+	// 		Type:     1,
+	// 		FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
+	// 		Total:    10,
+	// 		Built:    4,
+	// 	},
+	// 	{
+	// 		Type:     2,
+	// 		FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
+	// 		Total:    0,
+	// 		Built:    0,
+	// 	},
+	// 	{
+	// 		Type:     3,
+	// 		FormName: "Форма №1. Записная книжечка Выгебало",
+	// 		Total:    0,
+	// 		Built:    0,
+	// 	},
+	// 	{
+	// 		Type:     4,
+	// 		FormName: "Форма №1. Записная книжечка кадавра",
+	// 		Total:    14,
+	// 		Built:    3,
+	// 	},
+	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -137,32 +142,37 @@ func GetSmallToBuildOrders(c echo.Context) error {
 	orderID = orderID
 
 	// get the data by orderID
-	result := []db.BigOrdersModel{
-		{
-			Type:     1,
-			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
-			Total:    10,
-			Built:    4,
-		},
-		{
-			Type:     2,
-			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
-			Total:    0,
-			Built:    0,
-		},
-		{
-			Type:     3,
-			FormName: "Форма №1. Записная книжечка Выгебало",
-			Total:    0,
-			Built:    0,
-		},
-		{
-			Type:     4,
-			FormName: "Форма №1. Записная книжечка кадавра",
-			Total:    14,
-			Built:    3,
-		},
+	result, err := db.GetOrderListForBigSuborder(orderID)
+	if err != nil {
+		log.Println("error GetOrderListForBigSuborder: " + err.Error())
+		return err
 	}
+	// 	[]db.BigOrdersModel{
+	// 	{
+	// 		Type:     1,
+	// 		FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
+	// 		Total:    10,
+	// 		Built:    4,
+	// 	},
+	// 	{
+	// 		Type:     2,
+	// 		FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
+	// 		Total:    0,
+	// 		Built:    0,
+	// 	},
+	// 	{
+	// 		Type:     3,
+	// 		FormName: "Форма №1. Записная книжечка Выгебало",
+	// 		Total:    0,
+	// 		Built:    0,
+	// 	},
+	// 	{
+	// 		Type:     4,
+	// 		FormName: "Форма №1. Записная книжечка кадавра",
+	// 		Total:    14,
+	// 		Built:    3,
+	// 	},
+	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
