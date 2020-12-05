@@ -37,9 +37,10 @@ type Order struct {
 
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 
+
 // for /orders
 func GetAllOrdersForCompletion()([]OrdersModel,error){
-
+	log.Println("inside GetAllOrdersForCompletion")
 	var result []OrdersModel
 
 	db, err := sql.Open("postgres", connStr)
@@ -118,6 +119,7 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 
 // for /orders/big
 func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
+	log.Println("inside GetOrderListForBigSuborder")
 	var result []BigOrdersModel
 	var amounts [27]int
 
@@ -185,6 +187,8 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		}
 
 	}
+	log.Println("after GetOrderListForBigSuborder")
+	log.Println(result[1])
 	return result, nil
 }
 
@@ -259,11 +263,13 @@ func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
 		}
 
 	}
-
+	log.Println("after GetOrderListForSmallSuborder")
+	log.Println(result[0])
 	return result, nil
 }
 
-// for /orders/big/pallet
+
+// for /orders/pallet
 func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 	var result BigPalletModel
 	palNum := 0
@@ -284,7 +290,7 @@ func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 		return BigPalletModel{}, err
 	}
 
-	for rows.Next(){
+	if rows.Next(){
 		err = rows.Scan(&palNum)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
@@ -295,12 +301,14 @@ func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 	 allBoxes, err := GetBoxesToCompleteForOrder(orderId)
 	 for i := 0; i < len(allBoxes); i ++ {
 	 	good := GetProductByBoxID(allBoxes[i])
-	 	result.Types = append(result.Types, BigOrdersModel{
-			Type:     good.Type,
-			FormName: good.Name,
-			Total:    0,
-			Built:    0,
-		})
+	 	for s := 0; s < allBoxes[i]; s++ {
+			result.Types = append(result.Types, BigOrdersModel{
+				Type:     good.Type,
+				FormName: good.Name,
+				Total:    0,
+				Built:    0,
+			})
+		}
 	 }
 	 log.Println(result)
 	return result, nil

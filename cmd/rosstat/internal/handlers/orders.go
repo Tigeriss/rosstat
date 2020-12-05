@@ -53,17 +53,20 @@ func GetBigToBuildOrders(c echo.Context) error {
 // GET /orders/big/build/:id from page /orders/small/:id
 
 func GetSmallToBuildOrders(c echo.Context) error {
+	log.Println("inside handler small")
 	ctx := c.(*RosContext)
 	orderID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return err
 	}
 	// get the data by orderID
+	log.Println("inside handler small before call GetOrderListForSmallSuborder")
 	result, err := db.GetOrderListForSmallSuborder(orderID)
 	if err != nil {
 		log.Println("error GetOrderListForSmallSuborder: " + err.Error())
 		return err
 	}
+	log.Println("inside handler small after call GetOrderListForSmallSuborder")
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -95,39 +98,38 @@ func GetBigPalletOrders(c echo.Context) error {
 		return err
 	}
 
-	// remove it
-	orderID = orderID
 
 	// get the data by orderID
-	result := db.BigPalletModel{
-		PalletNum: 3,
-		Types: []db.BigOrdersModel{
-			{
-				Type:     1,
-				FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
-			},
-			{
-				Type:     2,
-				FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
-			},
-			{
-				Type:     3,
-				FormName: "Форма №1. Записная книжечка Выгебало",
-			},
-			{
-				Type:     4,
-				FormName: "Форма №1. Записная книжечка кадавра",
-			},
-			{
-				Type:     4,
-				FormName: "Форма №1. Записная книжечка кадавра",
-			},
-			{
-				Type:     4,
-				FormName: "Форма №1. Записная книжечка кадавра",
-			},
-		},
-	}
+	result, err := db.GetOrderListForPallets(orderID)
+	// 	db.BigPalletModel{
+	// 	PalletNum: 3,
+	// 	Types: []db.BigOrdersModel{
+	// 		{
+	// 			Type:     1,
+	// 			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
+	// 		},
+	// 		{
+	// 			Type:     2,
+	// 			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
+	// 		},
+	// 		{
+	// 			Type:     3,
+	// 			FormName: "Форма №1. Записная книжечка Выгебало",
+	// 		},
+	// 		{
+	// 			Type:     4,
+	// 			FormName: "Форма №1. Записная книжечка кадавра",
+	// 		},
+	// 		{
+	// 			Type:     4,
+	// 			FormName: "Форма №1. Записная книжечка кадавра",
+	// 		},
+	// 		{
+	// 			Type:     4,
+	// 			FormName: "Форма №1. Записная книжечка кадавра",
+	// 		},
+	// 	},
+	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
