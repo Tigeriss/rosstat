@@ -551,24 +551,11 @@ func getSmallBoxesAmountForOrder(orderId int) (int, error) {
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
-func PutSmallOrderToDB(orderId int, boxIds []int, userName string) (int, error) {
+func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, userName string) (int, error) {
 
-	err := createSmallBoxesRecord(orderId, boxIds, userName)
+	err := createSmallBoxesRecord(db , orderId, boxIds, userName)
 	if err != nil {
 		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
-		return 0, err
-	}
-
-	complectedGoods, err := GetAmountOfPiecesOfGood(orderId)
-	if err != nil {
-		log.Println("can't get amount of pieces in combined boxes: " + err.Error())
-		return 0, err
-	}
-
-	err = updateDataInRosstatOrdersWithPieces(complectedGoods)
-
-	if err != nil {
-		log.Println("can't update order with small suborder: " + err.Error())
 		return 0, err
 	}
 
@@ -1073,14 +1060,18 @@ func createBoxesRecord(palletId int, boxes []int, userName string) error {
 }
 
 // put data in rosstat.small_boxes
-func createSmallBoxesRecord(orderId int, boxIds []int, userName string) error {
+func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, userName string) error {
 	statementInsert := "insert into rosstat.small_boxes values "
 	for i := 0; i < len(boxIds); i++ {
-		statementInsert += "(" + strconv.Itoa(boxIds[i]) + ", " + strconv.Itoa(orderId) + ", " + userName + "),"
+		statementInsert += "(" + boxIds[i] + ", " + strconv.Itoa(orderId) + ", " + userName + "),"
 	}
 	statementInsert = strings.TrimRight(statementInsert, ",")
 	statementInsert += ";"
-	// TODO: put in db statementInsert Error check!!!
+	_, err := db.Query(statementInsert)
+	if err != nil{
+		log.Println("error execute query to insert small boxes for order")
+		return err
+	}
 	return nil
 }
 

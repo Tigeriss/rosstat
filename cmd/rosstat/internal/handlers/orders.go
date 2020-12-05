@@ -79,9 +79,15 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 		return err
 	}
 
-	log.Println(orderID)
-	log.Println(req.Boxes)
+	// log.Println(orderID)
+	// log.Println(req.Boxes)
 
+	boxesAmount, err := db.PutSmallOrderToDB(ctx.DB(), orderID, req.Boxes, ctx.User().Login)
+	if err != nil{
+		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
+		return err
+	}
+	log.Println(strconv.Itoa(boxesAmount) + " boxes were put in db")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
