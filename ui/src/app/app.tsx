@@ -9,7 +9,7 @@ import {Admin} from "./page/admin";
 import {AppHeader} from "./component/appHeader";
 import {Login} from "./page/login";
 import {Observer} from "mobx-react";
-import {Session} from "../store/session";
+import {Session, session} from "../store/session";
 import {Logout} from "./page/logout";
 import {OrdersBigPage} from "./page/ordersBig";
 import {OrdersPage} from "./page/orders";
@@ -18,7 +18,7 @@ import {OrdersPalletPage} from "./page/ordersPallet";
 import {ShipmentPage} from "./page/shipment";
 import {ShipmentPalletPage} from "./page/shipmentPallet";
 
-const SessionContext = React.createContext(new Session(true));
+const SessionContext = React.createContext(session);
 
 export function useSession(): Session {
     return useContext(SessionContext);
@@ -73,7 +73,6 @@ function AuthRouter() {
 }
 
 export function App() {
-    const session = new Session();
     return <SessionContext.Provider value={session}>
         <Observer>{() => session.currentUser == null
             ? <GuestRouter/>

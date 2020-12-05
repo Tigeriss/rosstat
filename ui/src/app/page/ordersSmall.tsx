@@ -4,7 +4,7 @@ import {Layout} from "../component/layout";
 import {useHistory, useParams} from "react-router-dom";
 import {useSession} from "../app";
 import {BigOrdersModel, OrdersModel} from "../../api/orders";
-import {Button, Checkbox, Divider, Form, Grid, Header, Icon, List, Message, Table} from "semantic-ui-react";
+import {Button, Checkbox, Divider, Form, Grid, Header, Icon, Input, List, Message, Table} from "semantic-ui-react";
 import {Session} from "../../store/session";
 
 function renderForm(session: Session, form: BigOrdersModel, i: number) {
@@ -29,6 +29,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
         const el = ev.currentTarget as HTMLInputElement;
         if (ev.key === "Enter" && el.value.trim() !== "") {
             if (session.preparedBoxes.some(v => v === el.value.trim())) {
+                el.value = "";
                 return;
             }
             session.preparedBoxes.push(el.value.trim());
@@ -51,7 +52,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
                 <Form>
                     <Form.Field>
                         <label>Соберите коробку и отсканируйте штрих-код:</label>
-                        <input placeholder='202700030' onKeyPress={addBox} />
+                        <Input placeholder='202700030' onKeyPress={addBox} />
                     </Form.Field>
                 </Form>
                 <Header sub>Собрано коробов:</Header>

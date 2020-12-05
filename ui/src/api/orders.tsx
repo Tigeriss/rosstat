@@ -27,6 +27,7 @@ export async function getOrdersToBuild(session: Session): Promise<OrdersModel[]>
 }
 
 export interface BigOrdersModel {
+    type: number;
     form_name: string;
     total: number;
     built: number;
@@ -45,4 +46,40 @@ export async function finishOrders(session: Session, orderId: number, preparedBo
     return await request(session, `orders/small/build/${orderId}/finish`, {
         boxes: preparedBoxes
     }, "POST");
+}
+
+//
+
+export interface BigPalletModel {
+    pallet_num: number;
+    types: BigOrdersModel[];
+}
+
+export interface BigPalletBarcodeModel {
+    success: boolean;
+    type: number;
+    error: string;
+}
+
+export interface BigPalletFinishRequestModel {
+    pallet_num: number;
+    barcodes: string[];
+}
+
+export interface BigPalletFinishResponseModel {
+    success: boolean;
+    error: string;
+    last_pallet: boolean;
+}
+
+export async function getBigPallet(session: Session, id: number): Promise<BigPalletModel> {
+    return await request(session, `orders/big/pallet/${id}`, {}, "GET");
+}
+
+export async function getBigPalletBarcode(session: Session, id: number, barcode: string): Promise<BigPalletBarcodeModel> {
+    return await request(session, `orders/big/pallet/${id}/barcode/${barcode}`, {}, "GET");
+}
+
+export async function finishBigPallet(session: Session, id: number, req: BigPalletFinishRequestModel): Promise<BigPalletFinishResponseModel> {
+    return await request(session, `orders/big/pallet/${id}/finish`, req);
 }

@@ -24,6 +24,7 @@ type OrdersModel struct {
 // GET /orders/big/build - used by /orders/big page
 
 type BigOrdersModel struct {
+	Type     int    `json:"type"`
 	FormName string `json:"form_name"`
 	Total    int    `json:"total"`
 	Built    int    `json:"built"`
@@ -31,4 +32,28 @@ type BigOrdersModel struct {
 
 type FinishSmallOrderModel struct {
 	Boxes []string `json:"boxes"`
+}
+
+// GET /orders/big/pallet/:id - from /order/pallet page
+
+type BigPalletModel struct {
+	PalletNum int              `json:"pallet_num"`
+	Types     []BigOrdersModel `json:"types"`
+}
+
+type BigPalletBarcodeModel struct {
+	Success bool   `json:"success"`
+	Type    int    `json:"type"`
+	Error   string `json:"error"`
+}
+
+type BigPalletFinishRequestModel struct {
+	PalletNum int      `json:"pallet_num"`
+	Barcodes  []string `json:"barcodes"`
+}
+
+type BigPalletFinishResponseModel struct {
+	Success    bool   `json:"success"`
+	Error      string `json:"error"`
+	LastPallet bool   `json:"last_pallet"`
 }

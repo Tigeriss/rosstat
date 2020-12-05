@@ -89,6 +89,9 @@ func main() {
 	api.GET("/orders/big/build/:id", handlers.GetBigToBuildOrders)
 	api.GET("/orders/small/build/:id", handlers.GetSmallToBuildOrders)
 	api.POST("/orders/small/build/:id/finish", handlers.FinishSmallToBuildOrders)
+	api.GET("/orders/big/pallet/:id", handlers.GetBigPalletOrders)
+	api.GET("/orders/big/pallet/:id/barcode/:barcode", handlers.GetBigPalletBarcodeOrders)
+	api.POST("/orders/big/pallet/:id/finish", handlers.FinishBigPalletOrders)
 	// ------------------------------------------------
 
 	// start server

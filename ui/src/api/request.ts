@@ -2,7 +2,7 @@ import {Session} from "../store/session";
 
 const API_URL = "/api/";
 
-export async function request<T>(session: Session, path: string, data: Record<string, unknown>, method: string = "POST"): Promise<T> {
+export async function request<T>(session: Session, path: string, data: unknown, method: string = "POST"): Promise<T> {
 
     const headers: Record<string, string> = {};
     headers["Content-Type"] = "application/json";

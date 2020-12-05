@@ -1,7 +1,13 @@
 import {makeAutoObservable, runInAction} from "mobx";
 import * as auth from "../api/auth";
 import * as orders from "../api/orders";
-import {BigOrdersModel, OrdersModel} from "../api/orders";
+import {
+    BigOrdersModel,
+    BigPalletBarcodeModel, BigPalletFinishRequestModel,
+    BigPalletFinishResponseModel,
+    BigPalletModel,
+    OrdersModel
+} from "../api/orders";
 
 const storageKey = "user";
 
@@ -53,6 +59,11 @@ export class Session {
 
     currentBigOrder: BigOrdersModel[] = [];
     currentSmallOrder: BigOrdersModel[] = [];
+    currentBigPalletOrder: BigPalletModel = {pallet_num: 0, types: []};
+
+    bigPalletOrderMatches: Array<{type: BigOrdersModel, barcode: string | null}> = [];
+
+    lastError: string = "";
 
     constructor(skip = false) {
         makeAutoObservable(this);
@@ -88,6 +99,7 @@ export class Session {
         this.autoUpdateInterval = setInterval(() => {
             this.fetchOrdersToBuild().catch(console.error);
             this.fetchBigOrdersToBuild().catch(console.error);
+            this.fetchBigPallet().catch(console.error);
         }, 1000) as any;
     }
 
@@ -126,6 +138,18 @@ export class Session {
         this.currentSmallOrder = await orders.getSmallOrdersToBuild(this, this.currentOrderId);
     }
 
+    async fetchBigPallet(): Promise<void> {
+        console.warn("fetchBigPallet");
+        if (this.currentOrderId == null) {
+            return;
+        }
+        this.currentBigPalletOrder = await orders.getBigPallet(this, this.currentOrderId);
+
+        if (this.bigPalletOrderMatches.length > 0 && this.bigPalletOrderMatches.length !== this.currentBigPalletOrder.types.length) {
+            // need that?
+        }
+    }
+
     findOrder(id: number): OrdersModel | null {
         return (this.ordersToBuild ?? []).find(o => o.id === id) ?? null;
     }
@@ -136,4 +160,40 @@ export class Session {
         }
         return  await orders.finishOrders(this, this.currentOrderId, this.preparedBoxes);
     }
+
+    async requestPalletType(barcode: string): Promise<BigPalletBarcodeModel> {
+        if (this.currentOrderId == null) {
+            return Promise.reject(new Error("orderId is null"));
+        }
+        return orders.getBigPalletBarcode(this, this.currentOrderId, barcode);
+    }
+
+    async finishBigPallet(req: BigPalletFinishRequestModel): Promise<BigPalletFinishResponseModel> {
+        if (this.currentOrderId == null) {
+            return Promise.reject(new Error("orderId is null"));
+        }
+        return orders.finishBigPallet(this, this.currentOrderId, req);
+    }
+
+    clearPalletBarcode() {
+        this.bigPalletOrderMatches = [];
+        for (const tp of this.currentBigPalletOrder.types) {
+            this.bigPalletOrderMatches.push({
+                barcode: null,
+                type: tp,
+            })
+        }
+    }
+
+    matchPalletBarcode(type: number, barcode: string): boolean {
+        for (const obj of this.bigPalletOrderMatches) {
+            if (obj.type.type === type && obj.barcode == null) {
+                obj.barcode = barcode;
+                return true;
+            }
+        }
+        return false;
+    }
 }
+
+export const session = new Session();
