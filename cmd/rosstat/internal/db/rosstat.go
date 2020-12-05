@@ -26,21 +26,19 @@ type GoodOrdered struct {
 
 // the order
 type Order struct {
-	Id                int           `db:"id" json:"id"`
-	NumOrder          string        `db:"num_order" json:"num_order"`
-	Contract          string        `db:"contract" json:"contract"`
-	Run               int           `db:"run" json:"run"`
-	Customer          string        `db:"customer" json:"customer"`
-	OrderName         string        `db:"order_name" json:"order_name"`
-	Address           string        `db:"address" json:"address"`
+	Id        int    `db:"id" json:"id"`
+	NumOrder  string `db:"num_order" json:"num_order"`
+	Contract  string `db:"contract" json:"contract"`
+	Run       int    `db:"run" json:"run"`
+	Customer  string `db:"customer" json:"customer"`
+	OrderName string `db:"order_name" json:"order_name"`
+	Address   string `db:"address" json:"address"`
 }
 
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 
-
 // for /orders
-func GetAllOrdersForCompletion()([]OrdersModel,error){
-	log.Println("inside GetAllOrdersForCompletion")
+func GetAllOrdersForCompletion() ([]OrdersModel, error) {
 	var result []OrdersModel
 
 	db, err := sql.Open("postgres", connStr)
@@ -59,9 +57,9 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 	}
 
 	var index = 1
-	for rows.Next(){
+	for rows.Next() {
 		order := Order{}
-		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer,&order.OrderName, &order.Address)
+		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer, &order.OrderName, &order.Address)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return nil, err
@@ -91,7 +89,7 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 			Run:           order.Run,
 			AmountPallets: 0,
 			AmountBoxes:   0,
-			SubOrders:   []SubOrderModel{
+			SubOrders: []SubOrderModel{
 				{
 					IsSmall:       false,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
@@ -119,7 +117,6 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 
 // for /orders/big
 func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
-	log.Println("inside GetOrderListForBigSuborder")
 	var result []BigOrdersModel
 	var amounts [27]int
 
@@ -147,7 +144,7 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		log.Println("error get amount of goods for order: " + err.Error())
 		return nil, err
 	}
-	for rows.Next(){
+	for rows.Next() {
 		err = rows.Scan(&amounts[26])
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
@@ -162,7 +159,7 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 
 	var allCompletedBoxes [27]int
 	allCompletedBoxIds, err := GetCompletedBoxesAmount(orderId)
-	if len(allCompletedBoxIds) != 0{
+	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
 			allCompletedBoxes[good.Type] ++
@@ -187,19 +184,16 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		}
 
 	}
-	log.Println("after GetOrderListForBigSuborder")
-	log.Println(result[1])
 	return result, nil
 }
 
 // for /orders/small
-func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
-	log.Println("inside GetOrderListForSmallSuborder")
+func GetOrderListForSmallSuborder(orderId int) ([]BigOrdersModel, error) {
 	// yep, its copy-paste, but let it be for now
 	var result []BigOrdersModel
 	var amounts [26]int
 	statement := "select "
-	for i:= 1; i < 27; i++{
+	for i := 1; i < 27; i++ {
 		statement += "\"" + strconv.Itoa(i) + "\","
 	}
 	statement = strings.TrimRight(statement, ",")
@@ -219,7 +213,7 @@ func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
 		log.Println("error get amount of goods for order: " + err.Error())
 		return nil, err
 	}
-	for rows.Next(){
+	for rows.Next() {
 		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
 			&amounts[3], &amounts[4], &amounts[5],
 			&amounts[6], &amounts[7], &amounts[8],
@@ -263,19 +257,17 @@ func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
 		}
 
 	}
-	log.Println("after GetOrderListForSmallSuborder")
-	log.Println(result[0])
 	return result, nil
 }
 
-
 // for /orders/pallet
-func GetOrderListForPallets(orderId int)(BigPalletModel,error){
+func GetOrderListForPallets(orderId int) (BigPalletModel, error) {
 	var result BigPalletModel
+	var allPalletsNums []int
 	palNum := 0
 	// get num for pallet:
-	statementGetNum := "select max(num) from rosstat.pallets where order_id = " +
-		strconv.Itoa(orderId) + ";"
+	statementGetNum := "select num from rosstat.pallets where order_id = " +
+		strconv.Itoa(orderId) + " order by num desc;"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Println("error establish connection: " + err.Error())
@@ -290,18 +282,25 @@ func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 		return BigPalletModel{}, err
 	}
 
-	if rows.Next(){
+	if rows.Next() {
 		err = rows.Scan(&palNum)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return BigPalletModel{}, err
 		}
+		allPalletsNums = append(allPalletsNums, palNum)
 	}
+	if len(allPalletsNums) > 0 {
+		palNum = allPalletsNums[0]
+	} else {
+		palNum = 0
+	}
+
 	result.PalletNum = palNum + 1
-	 allBoxes, err := GetBoxesToCompleteForOrder(orderId)
-	 for i := 0; i < len(allBoxes); i ++ {
-	 	good := GetProductByBoxID(allBoxes[i])
-	 	for s := 0; s < allBoxes[i]; s++ {
+	allBoxes, err := GetBoxesToCompleteForOrder(orderId)
+	for i := 0; i < len(allBoxes); i++ {
+		good := GetProductByType(i+1)
+		for s := 0; s < allBoxes[i]; s++ {
 			result.Types = append(result.Types, BigOrdersModel{
 				Type:     good.Type,
 				FormName: good.Name,
@@ -309,12 +308,11 @@ func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 				Built:    0,
 			})
 		}
-	 }
-	 log.Println(result)
+	}
 	return result, nil
 }
 
-func GetBoxesToCompleteForOrder(orderId int)([]int,error){
+func GetBoxesToCompleteForOrder(orderId int) ([]int, error) {
 	var result []int
 	var totalAmounts []int
 	var completedBoxes []int
@@ -335,21 +333,21 @@ func GetBoxesToCompleteForOrder(orderId int)([]int,error){
 		log.Println("error get combined boxes amount: " + err.Error())
 		return nil, err
 	}
-
-	for i := 0; i < 26; i++{
-		result = append(result, totalAmounts[i] - completedBoxes[i])
+	for i := 0; i < 26; i++ {
+		result = append(result, totalAmounts[i]-completedBoxes[i])
 	}
+
 	result = append(result, combinedBoxes)
 
 	return result, nil
 }
 
-func GetTotalPiecesAmountForOrder(orderId int) ([]int, error){
+func GetTotalPiecesAmountForOrder(orderId int) ([]int, error) {
 	var amounts [26]int
-	var result [] int
+	var result []int
 
 	statement := "select "
-	for i:= 1; i < 27; i++{
+	for i := 1; i < 27; i++ {
 		statement += "\"" + strconv.Itoa(i) + "\","
 	}
 	statement = strings.TrimRight(statement, ",")
@@ -370,7 +368,7 @@ func GetTotalPiecesAmountForOrder(orderId int) ([]int, error){
 		log.Println("error get total amount of goods for order: " + err.Error())
 		return []int{0}, err
 	}
-	for rows.Next(){
+	for rows.Next() {
 		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
 			&amounts[3], &amounts[4], &amounts[5],
 			&amounts[6], &amounts[7], &amounts[8],
@@ -398,12 +396,12 @@ func GetTotalPiecesAmountForOrder(orderId int) ([]int, error){
 	return result, nil
 }
 
-func GetTotalBoxesAmount(orderId int)([]int,error){
+func GetTotalBoxesAmount(orderId int) ([]int, error) {
 	var amounts [26]int
-	var result [] int
+	var result []int
 
 	statement := "select "
-	for i:= 1; i < 27; i++{
+	for i := 1; i < 27; i++ {
 		statement += "\"" + strconv.Itoa(i) + "\","
 	}
 	statement = strings.TrimRight(statement, ",")
@@ -424,7 +422,7 @@ func GetTotalBoxesAmount(orderId int)([]int,error){
 		log.Println("error get total amount of goods for order: " + err.Error())
 		return []int{0}, err
 	}
-	for rows.Next(){
+	for rows.Next() {
 		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
 			&amounts[3], &amounts[4], &amounts[5],
 			&amounts[6], &amounts[7], &amounts[8],
@@ -466,11 +464,11 @@ func GetCompletedBoxesAmount(orderId int) ([]int, error) {
 
 	rows, err := db.Query(statement)
 	if err != nil {
-		log.Println("error query statementGetNum - select last pallet num")
+		log.Println("error query select all boxes ids")
 		return nil, err
 	}
 	boxId := 0
-	for rows.Next(){
+	for rows.Next() {
 		err = rows.Scan(&boxId)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
@@ -478,10 +476,15 @@ func GetCompletedBoxesAmount(orderId int) ([]int, error) {
 		}
 		result = append(result, boxId)
 	}
+	if result == nil{
+		for i:= 0; i < 26; i++ {
+			result = append(result, 0)
+		}
+	}
 	return result, nil
 }
 
-func getCompletedBoxesAmountForOrder(orderId int) (int,error){
+func getCompletedBoxesAmountForOrder(orderId int) (int, error) {
 	var boxes = 0
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -496,14 +499,14 @@ func getCompletedBoxesAmountForOrder(orderId int) (int,error){
 	if err != nil {
 		log.Println("error get amount of boxes for order: " + err.Error())
 	}
-	for rows.Next(){
+	for rows.Next() {
 		rows.Scan(&boxes)
 	}
 
 	return boxes, nil
 }
 
-func getPalletsAmountForOrder(orderId int) (int,error){
+func getPalletsAmountForOrder(orderId int) (int, error) {
 	var pallets = 0
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -517,14 +520,14 @@ func getPalletsAmountForOrder(orderId int) (int,error){
 	if err != nil {
 		log.Println("error get amount of pallets for order: " + err.Error())
 	}
-	for rows.Next(){
+	for rows.Next() {
 		rows.Scan(&pallets)
 	}
 
 	return pallets, nil
 }
 
-func getSmallBoxesAmountForOrder(orderId int) (int,error){
+func getSmallBoxesAmountForOrder(orderId int) (int, error) {
 	var boxes = 0
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -538,41 +541,12 @@ func getSmallBoxesAmountForOrder(orderId int) (int,error){
 	if err != nil {
 		log.Println("error get amount of small boxes for order: " + err.Error())
 	}
-	for rows.Next(){
+	for rows.Next() {
 		rows.Scan(&boxes)
 	}
 
 	return boxes, nil
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
@@ -626,8 +600,6 @@ func GetLastPalletNumBuOrderId(orderId int) (int, error) {
 	// if there is no pallets with this order_id - return 0, it means we have no pallets for this order yet
 	return palletNum, nil
 }
-
-
 
 // this list is for small part of order, for combined boxes(27 type) Called when small order clicked
 func GetOrderListForPieces(orderId int) ([]GoodOrdered, error) {

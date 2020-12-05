@@ -53,20 +53,17 @@ func GetBigToBuildOrders(c echo.Context) error {
 // GET /orders/big/build/:id from page /orders/small/:id
 
 func GetSmallToBuildOrders(c echo.Context) error {
-	log.Println("inside handler small")
 	ctx := c.(*RosContext)
 	orderID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return err
 	}
 	// get the data by orderID
-	log.Println("inside handler small before call GetOrderListForSmallSuborder")
 	result, err := db.GetOrderListForSmallSuborder(orderID)
 	if err != nil {
 		log.Println("error GetOrderListForSmallSuborder: " + err.Error())
 		return err
 	}
-	log.Println("inside handler small after call GetOrderListForSmallSuborder")
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -97,7 +94,6 @@ func GetBigPalletOrders(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
 
 	// get the data by orderID
 	result, err := db.GetOrderListForPallets(orderID)
