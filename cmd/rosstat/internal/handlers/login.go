@@ -25,10 +25,9 @@ type LoginResponse struct {
 }
 
 func Login(c echo.Context) error {
-	ctx := c.(*RosContext)
 	req := new(LoginRequest)
 
-	if err := ctx.Bind(req); err != nil {
+	if err := c.Bind(req); err != nil {
 		return echo.ErrBadRequest
 	}
 
