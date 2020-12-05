@@ -120,12 +120,6 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 	var result []BigOrdersModel
 	var amounts [27]int
-	statement := "select "
-	for i:= 1; i < 27; i++{
-		statement += "\"" + strconv.Itoa(i) + "\","
-	}
-	statement = strings.TrimRight(statement, ",")
-	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -135,36 +129,18 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 
 	defer db.Close()
 
-	// get total amount of every good type
-	rows, err := db.Query(statement)
+	total, err := GetTotalBoxesAmount(orderId)
 	if err != nil {
-		log.Println("error get amount of goods for order: " + err.Error())
+		log.Println("error get boxes amount for order: " + err.Error())
 		return nil, err
 	}
-	for rows.Next(){
-		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
-			&amounts[3], &amounts[4], &amounts[5],
-			&amounts[6], &amounts[7], &amounts[8],
-			&amounts[9], &amounts[10], &amounts[11],
-			&amounts[12], &amounts[13], &amounts[14],
-			&amounts[15], &amounts[16], &amounts[17],
-			&amounts[18], &amounts[19], &amounts[20],
-			&amounts[21], &amounts[22], &amounts[23],
-			&amounts[24], &amounts[25])
-		if err != nil {
-			log.Println("error get data from row: " + err.Error())
-			return nil, err
-		}
-	}
-	err = rows.Close()
-	if err != nil {
-		log.Println("error close row: " + err.Error())
-		return nil, err
+	for i := 0; i < 26; i++ {
+		amounts[i] = total[i]
 	}
 
 	// get amount of combined boxes to complete
-	statement = "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
-	rows, err = db.Query(statement)
+	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
+	rows, err := db.Query(statement)
 	if err != nil {
 		log.Println("error get amount of goods for order: " + err.Error())
 		return nil, err
@@ -181,17 +157,20 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		log.Println("error close row: " + err.Error())
 		return nil, err
 	}
-	total, err := GetTotalBoxesAmount(orderId)
-	if err != nil {
-		log.Println("error get boxes amount for order: " + err.Error())
-		return nil, err
+
+	var allCompletedBoxes [27]int
+	allCompletedBoxIds, err := GetCompletedBoxesAmount(orderId)
+	if len(allCompletedBoxIds) != 0{
+		for i := 0; i < len(allCompletedBoxIds); i++ {
+			good := GetProductByBoxID(allCompletedBoxIds[i])
+			allCompletedBoxes[good.Type] ++
+		}
 	}
 
 	for i := 1; i < 27; i++ {
 		if amounts[i-1] != 0 {
-
 			good := GetProductByType(i)
-			boxes, err := GetCompletedBoxesAmountOfCertainProduct(orderId, good.Type)
+			boxes := allCompletedBoxes[i-1]
 			if err != nil {
 				log.Println("error get completed boxes amount of certain product for order: " + err.Error())
 				return nil, err
@@ -313,6 +292,46 @@ func GetOrderListForPallets(orderId int)(BigPalletModel,error){
 		}
 	}
 	result.PalletNum = palNum + 1
+	 allBoxes, err := GetBoxesToCompleteForOrder(orderId)
+	 for i := 0; i < len(allBoxes); i ++ {
+	 	good := GetProductByBoxID(allBoxes[i])
+	 	result.Types = append(result.Types, BigOrdersModel{
+			Type:     good.Type,
+			FormName: good.Name,
+			Total:    0,
+			Built:    0,
+		})
+	 }
+	 log.Println(result)
+	return result, nil
+}
+
+func GetBoxesToCompleteForOrder(orderId int)([]int,error){
+	var result []int
+	var totalAmounts []int
+	var completedBoxes []int
+	combinedBoxes := 0
+
+	totalAmounts, err := GetTotalBoxesAmount(orderId)
+	if err != nil {
+		log.Println("error get total boxes amount: " + err.Error())
+		return nil, err
+	}
+	completedBoxes, err = GetCompletedBoxesAmount(orderId)
+	if err != nil {
+		log.Println("error get completed boxes amount: " + err.Error())
+		return nil, err
+	}
+	combinedBoxes, err = getSmallBoxesAmountForOrder(orderId)
+	if err != nil {
+		log.Println("error get combined boxes amount: " + err.Error())
+		return nil, err
+	}
+
+	for i := 0; i < 26; i++{
+		result = append(result, totalAmounts[i] - completedBoxes[i])
+	}
+	result = append(result, combinedBoxes)
 
 	return result, nil
 }
@@ -381,7 +400,7 @@ func GetTotalBoxesAmount(orderId int)([]int,error){
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
-	log.Println(statement)
+	// log.Println(statement)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -407,7 +426,7 @@ func GetTotalBoxesAmount(orderId int)([]int,error){
 			&amounts[18], &amounts[19], &amounts[20],
 			&amounts[21], &amounts[22], &amounts[23],
 			&amounts[24], &amounts[25])
-		log.Println(amounts)
+
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return []int{0}, err
@@ -425,31 +444,32 @@ func GetTotalBoxesAmount(orderId int)([]int,error){
 	return result, nil
 }
 
-// TODO: optimise
-func GetCompletedBoxesAmountOfCertainProduct(orderId, productType int) (int, error) {
-	good := GetProductByType(productType)
-	result := 0
-	statement := "select count(id) from rosstat.boxes where id <" + strconv.Itoa(good.LastID) +
-		" and id > " + strconv.Itoa(good.FirstID) + "and pallet_id in (select id from rosstat.pallets where order_id = " +
-		strconv.Itoa(orderId) + ");"
-
+func GetCompletedBoxesAmount(orderId int) ([]int, error) {
+	var result []int
+	statement := "select id from rosstat.boxes where pallet_id in " +
+		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Println("error establish connection: " + err.Error())
-		return 0, err
+		return nil, err
 	}
+
 	defer db.Close()
 
 	rows, err := db.Query(statement)
 	if err != nil {
-		log.Println("error get completed boxes from db: " + err.Error())
-		return 0, err
+		log.Println("error query statementGetNum - select last pallet num")
+		return nil, err
 	}
-
+	boxId := 0
 	for rows.Next(){
-		rows.Scan(&result)
+		err = rows.Scan(&boxId)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
+		result = append(result, boxId)
 	}
-
 	return result, nil
 }
 
