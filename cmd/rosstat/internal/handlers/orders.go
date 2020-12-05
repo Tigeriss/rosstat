@@ -132,17 +132,17 @@ func GetBigToBuildOrders(c echo.Context) error {
 // GET /orders/big/build/:id from page /orders/small/:id
 
 func GetSmallToBuildOrders(c echo.Context) error {
+	log.Println("inside GetSmallToBuildOrders")
 	ctx := c.(*RosContext)
 	orderID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return err
 	}
-
-	// remove it
-	orderID = orderID
-
+	log.Println("after get order id")
+	log.Println("going to get data for page")
 	// get the data by orderID
 	result, err := db.GetOrderListForSmallSuborder(orderID)
+	log.Println("after call GetOrderListForSmallSuborder")
 	if err != nil {
 		log.Println("error GetOrderListForSmallSuborder: " + err.Error())
 		return err
