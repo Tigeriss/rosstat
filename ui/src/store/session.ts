@@ -110,19 +110,19 @@ export class Session {
         if (this.currentUser?.role === "collector") {
             this.fetchOrdersToBuild().catch(console.error);
 
-            this.autoUpdateInterval = setInterval(() => {
-                this.fetchOrdersToBuild().catch(console.error);
-                this.fetchBigOrdersToBuild().catch(console.error);
-                this.fetchBigPallet().catch(console.error);
-            }, 1000) as any;
+            // this.autoUpdateInterval = setInterval(() => {
+            //     this.fetchOrdersToBuild().catch(console.error);
+            //     this.fetchBigOrdersToBuild().catch(console.error);
+            //     this.fetchBigPallet().catch(console.error);
+            // }, 1000) as any;
         }
 
         if (this.currentUser?.role === "storekeeper") {
             this.fetchShipmentReady().catch(console.error);
 
-            this.autoUpdateInterval = setInterval(() => {
-                this.fetchShipmentReady().catch(console.error);
-            }, 1000) as any;
+            // this.autoUpdateInterval = setInterval(() => {
+            //     this.fetchShipmentReady().catch(console.error);
+            // }, 1000) as any;
         }
     }
 
