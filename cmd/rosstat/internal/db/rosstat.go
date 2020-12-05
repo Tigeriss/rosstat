@@ -14,6 +14,8 @@ type Good struct {
 	Name        string `db:"name" json:"name"`
 	Run         int    `db:"run" json:"run"`
 	AmountInBox int    `db:"amount_in_box" json:"amount_in_box"`
+	FirstID int `db:"first_id" json:"first_id"`
+	LastID int `db:"last_id" json:"last_id"`
 }
 
 // amount of ordered good of certain type
@@ -35,8 +37,9 @@ type Order struct {
 
 var connStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
 
-
+// for /orders
 func GetAllOrdersForCompletion()([]OrdersModel,error){
+
 	var result []OrdersModel
 
 	db, err := sql.Open("postgres", connStr)
@@ -44,20 +47,22 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 		log.Println("error establish connection: " + err.Error())
 		return nil, err
 	}
+
 	defer db.Close()
+
 	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false;"
 	rows, err := db.Query(statementGetOrders)
 	if err != nil {
 		log.Println("error query statementGetOrders - select all orders")
+		return nil, err
 	}
 
 	var index = 1
 	for rows.Next(){
-
 		order := Order{}
-		rows.Scan(&order)
+		rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer,&order.OrderName, &order.Address)
 
-		boxes, err := getBoxesAmountForOrder(order.Id)
+		boxes, err := getCompletedBoxesAmountForOrder(order.Id)
 		if err != nil {
 			log.Println("error get amount of box for order: " + err.Error())
 		}
@@ -99,9 +104,102 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 		result = append(result, tmp)
 		index++
 	}
+	rows.Close()
 	return result, nil
 }
-func getBoxesAmountForOrder(orderId int) (int,error){
+
+// for /orders/big
+func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
+	var result []BigOrdersModel
+	var amounts [27]int
+	statement := "select "
+	for i:= 1; i < 27; i++{
+		statement += "\"" + strconv.Itoa(i) + "\","
+	}
+	statement = strings.TrimRight(statement, ",")
+	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return nil, err
+	}
+
+	defer db.Close()
+
+	// get total amount of every good type
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of goods for order: " + err.Error())
+		return nil, err
+	}
+	for rows.Next(){
+		rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+			&amounts[3], &amounts[4], &amounts[5],
+			&amounts[6], &amounts[7], &amounts[8],
+			&amounts[9], &amounts[10], &amounts[11],
+			&amounts[12], &amounts[13], &amounts[14],
+			&amounts[15], &amounts[16], &amounts[17],
+			&amounts[18], &amounts[19], &amounts[20],
+			&amounts[21], &amounts[22], &amounts[23],
+			&amounts[24], &amounts[25])
+	}
+	rows.Close()
+
+	// get amount of combined boxes to complete
+	statement = "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
+	rows, err = db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of goods for order: " + err.Error())
+		return nil, err
+	}
+	for rows.Next(){
+		rows.Scan(&amounts[26])
+	}
+	rows.Close()
+
+
+	for i := 1; i < 27; i++ {
+		if amounts[i-1] != 0 {
+			good := GetProductByType(i)
+			tmp := BigOrdersModel{}
+			tmp.FormName = good.Name
+			// tmp.Total =
+			result = append(result, tmp)
+		}
+
+	}
+	return result, nil
+}
+
+func GetCompletedBoxesAmountOfCertainProduct(orderId, productType int) (int, error) {
+	good := GetProductByType(productType)
+	result := 0
+	statement := "select count(id) from rosstat.boxes where id <" + strconv.Itoa(good.LastID) +
+		" and id > " + strconv.Itoa(good.FirstID) + "and pallet_id in (select id from rosstat.pallets where order_id = " +
+		strconv.Itoa(orderId) + ");"
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return 0, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get completed boxes from db: " + err.Error())
+		return 0, err
+	}
+
+	for rows.Next(){
+		rows.Scan(&result)
+	}
+
+	return result, nil
+}
+
+func getCompletedBoxesAmountForOrder(orderId int) (int,error){
 	var boxes = 0
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -169,6 +267,31 @@ func getSmallBoxesAmountForOrder(orderId int) (int,error){
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
@@ -222,33 +345,7 @@ func GetLastPalletNumBuOrderId(orderId int) (int, error) {
 	return palletNum, nil
 }
 
-// list of all goods need to be collected in whole boxes. Called when "create pallet" button pressed in order completing window
-func GetOrderListForWholeBoxes(orderId int) ([]GoodOrdered, error) {
-	var result []GoodOrdered
-	for i := 0; i < 26; i++ {
-		tmp := GoodOrdered{}
-		tmp.Good = GetProductByType(i + 1)
-		amount := 0
-		str := "select \"" + strconv.Itoa(i+1) + "\" from rosstat.rosstat_orders where id=" + strconv.Itoa(orderId) + ";"
-		log.Println(str)
-		db, err := sql.Open("postgres", connStr)
-		if err != nil {
-			log.Println("error establish connection: " + err.Error())
-			return nil, err
-		}
-		rows, err := db.Query(str)
-		for rows.Next() {
-			err = rows.Scan(&amount)
-			if err != nil {
-				log.Println("error scan row: " + err.Error())
-				return nil, err
-			}
-		}
-		tmp.Amount = GetWholeBoxesOfThisProduct(tmp.Good, amount) // here we get amount of boxes of this product!
-		result = append(result, tmp)
-	}
-	return result, nil
-}
+
 
 // this list is for small part of order, for combined boxes(27 type) Called when small order clicked
 func GetOrderListForPieces(orderId int) ([]GoodOrdered, error) {
@@ -495,163 +592,216 @@ func GetProductByType(t int) Good {
 		result.Run = 476596
 		result.AmountInBox = 20
 		result.Num = "1"
+		result.FirstID = 200100001
+		result.LastID = 200200000
 		break
 	case 2:
 		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
 		result.Num = "2"
+		result.FirstID = 200200001
+		result.LastID = 200300000
 		break
 	case 3:
 		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
 		result.Num = "3"
+		result.FirstID = 200300001
+		result.LastID = 200400000
 		break
 	case 4:
 		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
 		result.Num = "4"
+		result.FirstID = 200400001
+		result.LastID = 200500000
 		break
 	case 5:
 		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
 		result.Num = "5"
+		result.FirstID = 200500001
+		result.LastID = 200600000
 		break
 	case 6:
 		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
 		result.Num = "6"
+		result.FirstID = 200600001
+		result.LastID = 200700000
 		break
 	case 7:
 		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
 		result.Num = "7"
+		result.FirstID = 200700001
+		result.LastID = 200800000
 		break
 	case 8:
 		result.Name = "Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
 		result.Num = "8"
+		result.FirstID = 200800001
+		result.LastID = 200900000
 		break
 	case 9:
 		result.Name = "Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
 		result.Num = "9"
+		result.FirstID = 200900001
+		result.LastID = 201000000
 		break
 	case 10:
 		result.Name = "Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
 		result.Num = "10"
+		result.FirstID = 201000001
+		result.LastID = 201100000
 		break
 	case 11:
 		result.Name = "Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
 		result.Num = "11"
+		result.FirstID = 201100001
+		result.LastID = 201200000
 		break
 	case 12:
 		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
 		result.Num = "12"
-
+		result.FirstID = 201200001
+		result.LastID = 201300000
 		break
 	case 13:
 		result.Name = "Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
 		result.Num = "13"
+		result.FirstID = 201300001
+		result.LastID = 201400000
 		break
 	case 14:
 		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
 		result.Num = "14"
+		result.FirstID = 201400001
+		result.LastID = 201500000
 		break
 	case 15:
 		result.Name = "Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
 		result.Num = "15"
+		result.FirstID = 201500001
+		result.LastID = 201600000
 		break
 	case 16:
 		result.Name = "Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
 		result.Num = "16"
+		result.FirstID = 201600001
+		result.LastID = 201700000
 		break
 	case 17:
 		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
 		result.Num = "17"
+		result.FirstID = 201700001
+		result.LastID = 201800000
 		break
 	case 18:
 		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
 		result.Num = "18"
+		result.FirstID = 201800001
+		result.LastID = 201900000
 		break
 	case 19:
 		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Num = "19"
+		result.FirstID = 201900001
+		result.LastID = 202000000
 		break
 	case 20:
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Num = "20"
+		result.FirstID = 202000001
+		result.LastID = 202100000
 		break
 	case 21:
 		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
 		result.Num = "21"
+		result.FirstID = 202100001
+		result.LastID = 202200000
 		break
 	case 22:
 		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Num = "22"
+		result.FirstID = 202200001
+		result.LastID = 202300000
 		break
 	case 23:
 		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
 		result.Num = "23"
+		result.FirstID = 202300001
+		result.LastID = 202400000
 		break
 	case 24:
 		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Num = "24"
+		result.FirstID = 202400001
+		result.LastID = 202500000
 		break
 	case 25:
 		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Num = "25"
+		result.FirstID = 202500001
+		result.LastID = 202600000
 		break
 	case 26:
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Num = "26"
+		result.FirstID = 202600001
+		result.LastID = 202700000
 		break
 	case 27:
 		result.Name = "Сборный короб"
 		result.Run = 0
 		result.AmountInBox = 0
 		result.Num = "27"
+		result.FirstID = 202700001
+		result.LastID = 202800000
 		break
 
 	}
