@@ -97,6 +97,9 @@ export class Session {
     }
 
     autoUpdate() {
+        if (window.location.pathname.includes("/print/")) {
+            return;
+        }
         clearInterval(this.autoUpdateInterval as any);
         // if (this.currentUser?.role === "admin") {
         //
@@ -160,6 +163,10 @@ export class Session {
 
     findOrder(id: number): OrdersModel | null {
         return (this.ordersToBuild ?? []).find(o => o.id === id) ?? null;
+    }
+
+    async findPallet(id: number, num: number) {
+        return await orders.getPrintPallet(this, id, num);
     }
 
     findShipment(id: number): ShipmentModel | null {

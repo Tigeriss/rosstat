@@ -56,6 +56,7 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
             });
 
             if (resp.success) {
+                window.open(`/orders/pallet/${order.id}/print/${pallet.pallet_num}`);
                 if (resp.last_pallet) {
                     history.push(`/orders`);
                 } else {

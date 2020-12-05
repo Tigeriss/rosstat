@@ -66,3 +66,19 @@ type ShipmentPalletModel struct {
 	Barcode     string `json:"barcode"`
 	AmountBoxes int    `json:"amount_boxes"`
 }
+
+type PrintPalletRegisterModel struct {
+	NumPP    int    `json:"num_pp"`
+	Position string `json:"position"`
+	Amount   int    `json:"amount"`
+	Boxes    int    `json:"boxes"`
+}
+
+type PrintPalletModel struct {
+	OrderCaption   string                     `json:"order_caption"`
+	Address        string                     `json:"address"`
+	Provider       string                     `json:"provider"`
+	ContractNumber string                     `json:"contract_number"`
+	Barcode        string                     `json:"barcode"`
+	Register       []PrintPalletRegisterModel `json:"register"`
+}

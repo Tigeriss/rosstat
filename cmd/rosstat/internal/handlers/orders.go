@@ -22,61 +22,61 @@ type ReadyToBuild struct {
 func GetToBuildOrders(c echo.Context) error {
 	ctx := c.(*RosContext)
 
-	result, err := db.GetAllOrdersForCompletion()
-	if err != nil {
-		log.Println("error get all orders for completion: " + err.Error())
-		return err
-	}
-	// result := []db.OrdersModel{
-	// 	{
-	// 		ID:            1,
-	// 		Num:           1,
-	// 		OrderCaption:  "О-20-123-РОССТАТ 2",
-	// 		Customer:      "Росстат",
-	// 		Address:       "107123, Москва",
-	// 		Run:           270,
-	// 		AmountPallets: 1,
-	// 		AmountBoxes:   1,
-	// 		SubOrders: []db.SubOrderModel{
-	// 			{
-	// 				IsSmall:       false,
-	// 				OrderCaption:  "О-20-123-РОССТАТ 2 (1-26)",
-	// 				AmountPallets: 1,
-	// 				AmountBoxes:   1,
-	// 			},
-	// 			{
-	// 				IsSmall:       true,
-	// 				OrderCaption:  "О-20-123-РОССТАТ 2 (27)",
-	// 				AmountPallets: 1,
-	// 				AmountBoxes:   1,
-	// 			},
-	// 		},
-	// 	},
-	// 	{
-	// 		ID:            2,
-	// 		Num:           2,
-	// 		OrderCaption:  "О-22-355-РОССТАТ 1",
-	// 		Customer:      "Росстат",
-	// 		Address:       "107123, Москва",
-	// 		Run:           1650,
-	// 		AmountPallets: 0,
-	// 		AmountBoxes:   0,
-	// 		SubOrders: []db.SubOrderModel{
-	// 			{
-	// 				IsSmall:       false,
-	// 				OrderCaption:  "О-22-355-РОССТАТ 1 (1-26)",
-	// 				AmountPallets: 0,
-	// 				AmountBoxes:   0,
-	// 			},
-	// 			{
-	// 				IsSmall:       true,
-	// 				OrderCaption:  "О-22-355-РОССТАТ 1 (27)",
-	// 				AmountPallets: 0,
-	// 				AmountBoxes:   0,
-	// 			},
-	// 		},
-	// 	},
+	// result, err := db.GetAllOrdersForCompletion()
+	// if err != nil {
+	// 	log.Println("error get all orders for completion: " + err.Error())
+	// 	return err
 	// }
+	result := []db.OrdersModel{
+		{
+			ID:            1,
+			Num:           1,
+			OrderCaption:  "О-20-123-РОССТАТ 2",
+			Customer:      "Росстат",
+			Address:       "107123, Москва",
+			Run:           270,
+			AmountPallets: 1,
+			AmountBoxes:   1,
+			SubOrders: []db.SubOrderModel{
+				{
+					IsSmall:       false,
+					OrderCaption:  "О-20-123-РОССТАТ 2 (1-26)",
+					AmountPallets: 1,
+					AmountBoxes:   1,
+				},
+				{
+					IsSmall:       true,
+					OrderCaption:  "О-20-123-РОССТАТ 2 (27)",
+					AmountPallets: 1,
+					AmountBoxes:   1,
+				},
+			},
+		},
+		{
+			ID:            2,
+			Num:           2,
+			OrderCaption:  "О-22-355-РОССТАТ 1",
+			Customer:      "Росстат",
+			Address:       "107123, Москва",
+			Run:           1650,
+			AmountPallets: 0,
+			AmountBoxes:   0,
+			SubOrders: []db.SubOrderModel{
+				{
+					IsSmall:       false,
+					OrderCaption:  "О-22-355-РОССТАТ 1 (1-26)",
+					AmountPallets: 0,
+					AmountBoxes:   0,
+				},
+				{
+					IsSmall:       true,
+					OrderCaption:  "О-22-355-РОССТАТ 1 (27)",
+					AmountPallets: 0,
+					AmountBoxes:   0,
+				},
+			},
+		},
+	}
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -224,6 +224,52 @@ func GetBigPalletOrders(c echo.Context) error {
 			{
 				Type:     4,
 				FormName: "Форма №1. Записная книжечка кадавра",
+			},
+		},
+	}
+
+	return ctx.JSON(http.StatusOK, result)
+}
+
+func GetBigPalletNum(c echo.Context) error {
+	ctx := c.(*RosContext)
+	orderID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return err
+	}
+
+	num, err := strconv.Atoi(c.Param("num"))
+	if err != nil {
+		return err
+	}
+
+	log.Println(num)
+	log.Println(orderID)
+
+	result := db.PrintPalletModel{
+		OrderCaption:   "О-20-123-РОССТАТ 2",
+		Address:        "107123, Москва",
+		Provider:       "Жирпром",
+		ContractNumber: "123-53322",
+		Barcode:        "111222333",
+		Register:       []db.PrintPalletRegisterModel{
+			{
+				NumPP:    1,
+				Position: "Форма №2. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
+			},
+			{
+				NumPP:    2,
+				Position: "Форма №3. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
+			},
+			{
+				NumPP:    3,
+				Position: "Форма №4. Записная книжечка Котофея Матвеевича",
+				Amount:   10,
+				Boxes:    5,
 			},
 		},
 	}
