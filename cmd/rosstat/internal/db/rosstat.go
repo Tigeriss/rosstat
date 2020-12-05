@@ -181,6 +181,11 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		log.Println("error close row: " + err.Error())
 		return nil, err
 	}
+	total, err := GetTotalBoxesAmount(orderId)
+	if err != nil {
+		log.Println("error get boxes amount for order: " + err.Error())
+		return nil, err
+	}
 
 	for i := 1; i < 27; i++ {
 		if amounts[i-1] != 0 {
@@ -191,16 +196,11 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 				log.Println("error get completed boxes amount of certain product for order: " + err.Error())
 				return nil, err
 			}
-			total, err := GetTotalBoxesAmountOfCertainProduct(orderId, i)
-			if err != nil {
-				log.Println("error get boxes amount of certain product for order: " + err.Error())
-				return nil, err
-			}
 
 			tmp := BigOrdersModel{}
 			tmp.FormName = good.Name
 			tmp.Type = good.Type
-			tmp.Total = total
+			tmp.Total = total[i-1]
 			tmp.Built = boxes
 			result = append(result, tmp)
 		}
@@ -209,17 +209,99 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 	return result, nil
 }
 
-
-func GetTotalBoxesAmountOfCertainProduct(orderId, productType int)(int,error){
-	result := 0
-
-	statement := "select \"" + strconv.Itoa(productType) + "\" from rosstat.rosstat_orders where id = " +
-		strconv.Itoa(orderId) + ";"
+// for /orders/small
+func GetOrderListForSmallSuborder(orderId int)([]BigOrdersModel, error){
+	log.Println("inside GetOrderListForSmallSuborder")
+	// yep, its copy-paste, but let it be for now
+	var result []BigOrdersModel
+	var amounts [26]int
+	statement := "select "
+	for i:= 1; i < 27; i++{
+		statement += "\"" + strconv.Itoa(i) + "\","
+	}
+	statement = strings.TrimRight(statement, ",")
+	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Println("error establish connection: " + err.Error())
-		return 0, err
+		return nil, err
+	}
+
+	defer db.Close()
+
+	// get total amount of every good type
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get amount of goods for order: " + err.Error())
+		return nil, err
+	}
+	for rows.Next(){
+		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+			&amounts[3], &amounts[4], &amounts[5],
+			&amounts[6], &amounts[7], &amounts[8],
+			&amounts[9], &amounts[10], &amounts[11],
+			&amounts[12], &amounts[13], &amounts[14],
+			&amounts[15], &amounts[16], &amounts[17],
+			&amounts[18], &amounts[19], &amounts[20],
+			&amounts[21], &amounts[22], &amounts[23],
+			&amounts[24], &amounts[25])
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return result, err
+	}
+	allProductsTotal, err := GetTotalPiecesAmountForOrder(orderId)
+	if err != nil {
+		log.Println("error get total pieces for order: " + err.Error())
+		return result, err
+	}
+
+	for i := 1; i < 27; i++ {
+		if amounts[i-1] != 0 {
+
+			good := GetProductByType(i)
+			if err != nil {
+				log.Println("error get boxes amount of certain product for order: " + err.Error())
+				return nil, err
+			}
+
+			tmp := BigOrdersModel{}
+			tmp.FormName = good.Name
+			tmp.Type = good.Type
+			tmp.Total = allProductsTotal[i-1]
+			tmp.Built = 0
+			result = append(result, tmp)
+		}
+
+	}
+
+	return result, nil
+}
+
+
+
+func GetTotalPiecesAmountForOrder(orderId int) ([]int, error){
+	var amounts [26]int
+	var result [] int
+
+	statement := "select "
+	for i:= 1; i < 27; i++{
+		statement += "\"" + strconv.Itoa(i) + "\","
+	}
+	statement = strings.TrimRight(statement, ",")
+	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+	log.Println(statement)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return []int{0}, err
 	}
 
 	defer db.Close()
@@ -228,13 +310,22 @@ func GetTotalBoxesAmountOfCertainProduct(orderId, productType int)(int,error){
 	rows, err := db.Query(statement)
 	if err != nil {
 		log.Println("error get total amount of goods for order: " + err.Error())
-		return 0, err
+		return []int{0}, err
 	}
 	for rows.Next(){
-		err = rows.Scan(&result)
+		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+			&amounts[3], &amounts[4], &amounts[5],
+			&amounts[6], &amounts[7], &amounts[8],
+			&amounts[9], &amounts[10], &amounts[11],
+			&amounts[12], &amounts[13], &amounts[14],
+			&amounts[15], &amounts[16], &amounts[17],
+			&amounts[18], &amounts[19], &amounts[20],
+			&amounts[21], &amounts[22], &amounts[23],
+			&amounts[24], &amounts[25])
+		log.Println(amounts)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
-			return 0, err
+			return []int{0}, err
 		}
 	}
 	err = rows.Close()
@@ -242,8 +333,63 @@ func GetTotalBoxesAmountOfCertainProduct(orderId, productType int)(int,error){
 		log.Println("error close row: " + err.Error())
 		return result, err
 	}
+	for i := 1; i < 27; i++ {
+		result = append(result, GetPiecesOfThisProduct(GetProductByType(i), amounts[i-1]))
+	}
 
-	result = GetWholeBoxesOfThisProduct(GetProductByType(productType), result)
+	return result, nil
+}
+
+func GetTotalBoxesAmount(orderId int)([]int,error){
+	var amounts [26]int
+	var result [] int
+
+	statement := "select "
+	for i:= 1; i < 27; i++{
+		statement += "\"" + strconv.Itoa(i) + "\","
+	}
+	statement = strings.TrimRight(statement, ",")
+	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+	log.Println(statement)
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return []int{0}, err
+	}
+
+	defer db.Close()
+
+	// get total amount of every good type
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get total amount of goods for order: " + err.Error())
+		return []int{0}, err
+	}
+	for rows.Next(){
+		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+			&amounts[3], &amounts[4], &amounts[5],
+			&amounts[6], &amounts[7], &amounts[8],
+			&amounts[9], &amounts[10], &amounts[11],
+			&amounts[12], &amounts[13], &amounts[14],
+			&amounts[15], &amounts[16], &amounts[17],
+			&amounts[18], &amounts[19], &amounts[20],
+			&amounts[21], &amounts[22], &amounts[23],
+			&amounts[24], &amounts[25])
+		log.Println(amounts)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return []int{0}, err
+		}
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return result, err
+	}
+	for i := 1; i < 27; i++ {
+		result = append(result, GetWholeBoxesOfThisProduct(GetProductByType(i), amounts[i-1]))
+	}
 
 	return result, nil
 }
