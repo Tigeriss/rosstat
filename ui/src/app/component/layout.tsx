@@ -1,6 +1,6 @@
 import {Observer} from "mobx-react";
 import React from "react";
-import {Container, Segment} from "semantic-ui-react";
+import {Container, Divider, Icon, Segment} from "semantic-ui-react";
 import {useSession} from "../app";
 
 interface Props {
@@ -13,7 +13,8 @@ export function Layout({children}: Props) {
         <Container>
             <Segment.Group>
                 <Segment textAlign="right">
-                    {session.currentUser?.login} {session.currentDate}
+                    <Icon name="user" color="blue" />{session.currentUser?.login}
+                    <Icon name="time" color="green" style={{marginLeft: 10}} />{session.currentDate}
                 </Segment>
                 <Segment padded style={{minHeight: '100vh'}}>
                     {children}

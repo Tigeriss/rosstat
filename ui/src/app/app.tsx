@@ -56,7 +56,7 @@ function AuthRouter() {
             <Route path="/orders">
                 <OrdersPage />
             </Route>
-            <Route path="/shipment/pallet">
+            <Route path="/shipment/pallet/:id">
                 <ShipmentPalletPage />
             </Route>
             <Route path="/shipment">
