@@ -10,12 +10,12 @@ import (
 
 // good itself. hardcoded because of problems with id
 type Good struct {
-	Num         string `db:"num" json:"num"`
+	Type        int    `db:"num" json:"num"`
 	Name        string `db:"name" json:"name"`
 	Run         int    `db:"run" json:"run"`
 	AmountInBox int    `db:"amount_in_box" json:"amount_in_box"`
-	FirstID int `db:"first_id" json:"first_id"`
-	LastID int `db:"last_id" json:"last_id"`
+	FirstID     int    `db:"first_id" json:"first_id"`
+	LastID      int    `db:"last_id" json:"last_id"`
 }
 
 // amount of ordered good of certain type
@@ -60,7 +60,11 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 	var index = 1
 	for rows.Next(){
 		order := Order{}
-		rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer,&order.OrderName, &order.Address)
+		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer,&order.OrderName, &order.Address)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
 
 		boxes, err := getCompletedBoxesAmountForOrder(order.Id)
 		if err != nil {
@@ -104,7 +108,11 @@ func GetAllOrdersForCompletion()([]OrdersModel,error){
 		result = append(result, tmp)
 		index++
 	}
-	rows.Close()
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -134,7 +142,7 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		return nil, err
 	}
 	for rows.Next(){
-		rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
 			&amounts[3], &amounts[4], &amounts[5],
 			&amounts[6], &amounts[7], &amounts[8],
 			&amounts[9], &amounts[10], &amounts[11],
@@ -143,8 +151,16 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 			&amounts[18], &amounts[19], &amounts[20],
 			&amounts[21], &amounts[22], &amounts[23],
 			&amounts[24], &amounts[25])
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
 	}
-	rows.Close()
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 
 	// get amount of combined boxes to complete
 	statement = "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
@@ -154,21 +170,81 @@ func GetOrderListForBigSuborder(orderId int) ([]BigOrdersModel, error) {
 		return nil, err
 	}
 	for rows.Next(){
-		rows.Scan(&amounts[26])
+		err = rows.Scan(&amounts[26])
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
 	}
-	rows.Close()
-
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 
 	for i := 1; i < 27; i++ {
 		if amounts[i-1] != 0 {
+
 			good := GetProductByType(i)
+			boxes, err := GetCompletedBoxesAmountOfCertainProduct(orderId, good.Type)
+			if err != nil {
+				log.Println("error get completed boxes amount of certain product for order: " + err.Error())
+				return nil, err
+			}
+			total, err := GetTotalBoxesAmountOfCertainProduct(orderId, i)
+			if err != nil {
+				log.Println("error get boxes amount of certain product for order: " + err.Error())
+				return nil, err
+			}
+
 			tmp := BigOrdersModel{}
 			tmp.FormName = good.Name
-			// tmp.Total =
+			tmp.Type = good.Type
+			tmp.Total = total
+			tmp.Built = boxes
 			result = append(result, tmp)
 		}
 
 	}
+	return result, nil
+}
+
+
+func GetTotalBoxesAmountOfCertainProduct(orderId, productType int)(int,error){
+	result := 0
+
+	statement := "select \"" + strconv.Itoa(productType) + "\" from rosstat.rosstat_orders where id = " +
+		strconv.Itoa(orderId) + ";"
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Println("error establish connection: " + err.Error())
+		return 0, err
+	}
+
+	defer db.Close()
+
+	// get total amount of every good type
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error get total amount of goods for order: " + err.Error())
+		return 0, err
+	}
+	for rows.Next(){
+		err = rows.Scan(&result)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return 0, err
+		}
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return result, err
+	}
+
+	result = GetWholeBoxesOfThisProduct(GetProductByType(productType), result)
+
 	return result, nil
 }
 
@@ -383,11 +459,7 @@ func GetPiecesOfThisProduct(product Good, totalAmount int) int {
 func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds []int) ([27]int, error) {
 	var result [27]int
 	for i := 0; i < len(boxIds); i++ {
-		goodType, err := strconv.Atoi(GetProductByBoxID(boxIds[i]).Num)
-		if err != nil {
-			log.Println("Error try to convert good type to int: " + err.Error())
-			return [27]int{}, err
-		}
+		goodType := GetProductByBoxID(boxIds[i]).Type
 		boxIds[goodType]++
 	}
 	return result, nil
@@ -419,163 +491,163 @@ func GetProductByBoxID(id int) Good {
 		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
-		result.Num = "1"
+		result.Type = 1
 
 	} else if id > 200200001 && id < 200300000 {
 		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
-		result.Num = "2"
+		result.Type = 2
 
 	} else if id > 200300001 && id < 200400000 {
 		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
-		result.Num = "3"
+		result.Type = 3
 
 	} else if id > 200400001 && id < 200500000 {
 		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
-		result.Num = "4"
+		result.Type = 4
 
 	} else if id > 200500001 && id < 200600000 {
 		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
-		result.Num = "5"
+		result.Type = 5
 
 	} else if id > 200600001 && id < 200700000 {
 		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
-		result.Num = "6"
+		result.Type = 6
 
 	} else if id > 200700001 && id < 200800000 {
 		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
-		result.Num = "7"
+		result.Type = 7
 
 	} else if id > 200800001 && id < 200900000 {
 		result.Name = "Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
-		result.Num = "8"
+		result.Type = 8
 
 	} else if id > 200900001 && id < 201000000 {
 		result.Name = "Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
-		result.Num = "9"
+		result.Type = 9
 
 	} else if id > 201000001 && id < 201100000 {
 		result.Name = "Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
-		result.Num = "10"
+		result.Type = 10
 
 	} else if id > 201100001 && id < 201200000 {
 		result.Name = "Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
-		result.Num = "11"
+		result.Type = 11
 
 	} else if id > 201200001 && id < 201300000 {
 		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
-		result.Num = "12"
+		result.Type = 12
 
 	} else if id > 201300001 && id < 201400000 {
 		result.Name = "Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
-		result.Num = "13"
+		result.Type = 13
 
 	} else if id > 201400001 && id < 201500000 {
 		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
-		result.Num = "14"
+		result.Type = 14
 
 	} else if id > 201500001 && id < 201600000 {
 		result.Name = "Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
-		result.Num = "15"
+		result.Type = 15
 
 	} else if id > 201600001 && id < 201700000 {
 		result.Name = "Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
-		result.Num = "16"
+		result.Type = 16
 
 	} else if id > 201700001 && id < 201800000 {
 		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
-		result.Num = "17"
+		result.Type = 17
 
 	} else if id > 201800001 && id < 201900000 {
 		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
-		result.Num = "18"
+		result.Type = 18
 
 	} else if id > 201900001 && id < 202000000 {
 		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
-		result.Num = "19"
+		result.Type = 19
 
 	} else if id > 202000001 && id < 202100000 {
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
-		result.Num = "20"
+		result.Type = 20
 
 	} else if id > 202100001 && id < 202200000 {
 		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
-		result.Num = "21"
+		result.Type = 21
 
 	} else if id > 202200001 && id < 202300000 {
 		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "22"
+		result.Type = 22
 
 	} else if id > 202300001 && id < 202400000 {
 		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
-		result.Num = "23"
+		result.Type = 23
 
 	} else if id > 202400001 && id < 202500000 {
 		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "24"
+		result.Type = 24
 
 	} else if id > 202500001 && id < 202600000 {
 		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "25"
+		result.Type = 25
 
 	} else if id > 202600001 && id < 202700000 {
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "26"
+		result.Type = 26
 
 	} else if id > 202700001 && id < 202800000 {
 		result.Name = "Сборный короб"
 		result.Run = 0
 		result.AmountInBox = 0
-		result.Num = "27"
+		result.Type = 27
 
 	}
 
@@ -591,7 +663,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
-		result.Num = "1"
+		result.Type = 1
 		result.FirstID = 200100001
 		result.LastID = 200200000
 		break
@@ -599,7 +671,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
-		result.Num = "2"
+		result.Type = 2
 		result.FirstID = 200200001
 		result.LastID = 200300000
 		break
@@ -607,7 +679,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
-		result.Num = "3"
+		result.Type = 3
 		result.FirstID = 200300001
 		result.LastID = 200400000
 		break
@@ -615,7 +687,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
-		result.Num = "4"
+		result.Type = 4
 		result.FirstID = 200400001
 		result.LastID = 200500000
 		break
@@ -623,7 +695,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
-		result.Num = "5"
+		result.Type = 5
 		result.FirstID = 200500001
 		result.LastID = 200600000
 		break
@@ -631,7 +703,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
-		result.Num = "6"
+		result.Type = 6
 		result.FirstID = 200600001
 		result.LastID = 200700000
 		break
@@ -639,7 +711,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
-		result.Num = "7"
+		result.Type = 7
 		result.FirstID = 200700001
 		result.LastID = 200800000
 		break
@@ -647,7 +719,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
-		result.Num = "8"
+		result.Type = 8
 		result.FirstID = 200800001
 		result.LastID = 200900000
 		break
@@ -655,7 +727,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
-		result.Num = "9"
+		result.Type = 9
 		result.FirstID = 200900001
 		result.LastID = 201000000
 		break
@@ -663,7 +735,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
-		result.Num = "10"
+		result.Type = 10
 		result.FirstID = 201000001
 		result.LastID = 201100000
 		break
@@ -671,7 +743,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
-		result.Num = "11"
+		result.Type = 11
 		result.FirstID = 201100001
 		result.LastID = 201200000
 		break
@@ -679,7 +751,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
-		result.Num = "12"
+		result.Type = 12
 		result.FirstID = 201200001
 		result.LastID = 201300000
 		break
@@ -687,7 +759,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
-		result.Num = "13"
+		result.Type = 13
 		result.FirstID = 201300001
 		result.LastID = 201400000
 		break
@@ -695,7 +767,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
-		result.Num = "14"
+		result.Type = 14
 		result.FirstID = 201400001
 		result.LastID = 201500000
 		break
@@ -703,7 +775,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
-		result.Num = "15"
+		result.Type = 15
 		result.FirstID = 201500001
 		result.LastID = 201600000
 		break
@@ -711,7 +783,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
-		result.Num = "16"
+		result.Type = 16
 		result.FirstID = 201600001
 		result.LastID = 201700000
 		break
@@ -719,7 +791,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
-		result.Num = "17"
+		result.Type = 17
 		result.FirstID = 201700001
 		result.LastID = 201800000
 		break
@@ -727,7 +799,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
-		result.Num = "18"
+		result.Type = 18
 		result.FirstID = 201800001
 		result.LastID = 201900000
 		break
@@ -735,7 +807,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
-		result.Num = "19"
+		result.Type = 19
 		result.FirstID = 201900001
 		result.LastID = 202000000
 		break
@@ -743,7 +815,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
-		result.Num = "20"
+		result.Type = 20
 		result.FirstID = 202000001
 		result.LastID = 202100000
 		break
@@ -751,7 +823,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
-		result.Num = "21"
+		result.Type = 21
 		result.FirstID = 202100001
 		result.LastID = 202200000
 		break
@@ -759,7 +831,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "22"
+		result.Type = 22
 		result.FirstID = 202200001
 		result.LastID = 202300000
 		break
@@ -767,7 +839,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
-		result.Num = "23"
+		result.Type = 23
 		result.FirstID = 202300001
 		result.LastID = 202400000
 		break
@@ -775,7 +847,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "24"
+		result.Type = 24
 		result.FirstID = 202400001
 		result.LastID = 202500000
 		break
@@ -783,7 +855,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "25"
+		result.Type = 25
 		result.FirstID = 202500001
 		result.LastID = 202600000
 		break
@@ -791,7 +863,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
-		result.Num = "26"
+		result.Type = 26
 		result.FirstID = 202600001
 		result.LastID = 202700000
 		break
@@ -799,7 +871,7 @@ func GetProductByType(t int) Good {
 		result.Name = "Сборный короб"
 		result.Run = 0
 		result.AmountInBox = 0
-		result.Num = "27"
+		result.Type = 27
 		result.FirstID = 202700001
 		result.LastID = 202800000
 		break
