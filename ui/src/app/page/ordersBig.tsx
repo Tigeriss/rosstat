@@ -13,7 +13,7 @@ function renderForm(form: BigOrdersModel) {
         <Table.Cell width="1">{form.built}</Table.Cell>
         <Table.Cell width="1">{form.total - form.built}</Table.Cell>
         <Table.Cell width="1" negative={form.total - form.built > 0}>
-            {form.total - form.built === 0 ? <Icon name='checkmark' /> : <Icon name='close' />}
+            {form.total - form.built === 0 ? <Icon name='checkmark' color="green" /> : <Icon name='close' color="red" />}
         </Table.Cell>
     </Table.Row>;
 }

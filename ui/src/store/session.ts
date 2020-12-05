@@ -1,6 +1,7 @@
 import {makeAutoObservable, runInAction} from "mobx";
 import * as auth from "../api/auth";
 import * as orders from "../api/orders";
+import * as shipment from "../api/shipment";
 import {
     BigOrdersModel,
     BigPalletBarcodeModel, BigPalletFinishRequestModel,
@@ -8,6 +9,7 @@ import {
     BigPalletModel,
     OrdersModel
 } from "../api/orders";
+import {ShipmentModel, ShipmentPalletModel} from "../api/shipment";
 
 const storageKey = "user";
 
@@ -24,7 +26,7 @@ export class User {
 }
 
 function formatDate(d: Date = new Date()) {
-    return `${d.getDate()}.${d.getMonth()}.${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}`;
+    return `${d.getDate().toString().padStart(2, "0")}.${d.getMonth().toString().padStart(2, "0")}.${d.getFullYear().toString().padStart(4, "0")} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
 export class Session {
@@ -47,21 +49,23 @@ export class Session {
         this.loggedUser = val;
     }
 
-    openedOrders: Record<string, boolean> = {};
-
-    completedBoxes: Record<number, boolean> = {};
-
-    currentDate: string = formatDate();
-
-    ordersToBuild: OrdersModel[] | null = null;
-
     currentOrderId: number | null = null;
 
+    // order related
+    openedOrders: Record<string, boolean> = {};
+    completedBoxes: Record<number, boolean> = {};
+    currentDate: string = formatDate();
+    ordersToBuild: OrdersModel[] | null = null;
     currentBigOrder: BigOrdersModel[] = [];
     currentSmallOrder: BigOrdersModel[] = [];
     currentBigPalletOrder: BigPalletModel = {pallet_num: 0, types: []};
-
     bigPalletOrderMatches: Array<{type: BigOrdersModel, barcode: string | null}> = [];
+
+    // shipment related
+    currentShipmentId: number | null = null;
+    currentShipments: ShipmentModel[] = [];
+    currentShipmentPallet: ShipmentPalletModel[] = [];
+    sentPallets: Record<string, boolean> = {};
 
     lastError: string = "";
 
@@ -94,10 +98,15 @@ export class Session {
 
     autoUpdate() {
         clearInterval(this.autoUpdateInterval as any);
+        // if (this.currentUser?.role === "admin") {
+        //
+        // }
         this.fetchOrdersToBuild().catch(console.error);
+        this.fetchShipmentReady().catch(console.error);
 
         this.autoUpdateInterval = setInterval(() => {
             this.fetchOrdersToBuild().catch(console.error);
+            this.fetchShipmentReady().catch(console.error);
             this.fetchBigOrdersToBuild().catch(console.error);
             this.fetchBigPallet().catch(console.error);
         }, 1000) as any;
@@ -139,7 +148,6 @@ export class Session {
     }
 
     async fetchBigPallet(): Promise<void> {
-        console.warn("fetchBigPallet");
         if (this.currentOrderId == null) {
             return;
         }
@@ -152,6 +160,10 @@ export class Session {
 
     findOrder(id: number): OrdersModel | null {
         return (this.ordersToBuild ?? []).find(o => o.id === id) ?? null;
+    }
+
+    findShipment(id: number): ShipmentModel | null {
+        return (this.currentShipments ?? []).find(o => o.id === id) ?? null;
     }
 
     async finishOrders(): Promise<void> {
@@ -193,6 +205,25 @@ export class Session {
             }
         }
         return false;
+    }
+
+    async fetchShipmentReady(): Promise<void> {
+        this.currentShipments = await shipment.getShipmentReady(this);
+    }
+
+    async fetchShipmentPallet(): Promise<void> {
+        if (this.currentShipmentId == null) {
+            return;
+        }
+        this.currentShipmentPallet = await shipment.getShipmentPallet(this, this.currentShipmentId);
+    }
+
+    async finishPalletShipment(): Promise<void> {
+        if (this.currentShipmentId == null) {
+            return Promise.reject(new Error("orderId is null"));
+        }
+
+        return shipment.finishPalletShipment(this, this.currentShipmentId);
     }
 }
 

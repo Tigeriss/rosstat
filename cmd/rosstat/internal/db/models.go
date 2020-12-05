@@ -18,7 +18,7 @@ type OrdersModel struct {
 	Run           int             `json:"run"`           // Тираж
 	AmountPallets int             `json:"amount_pallets"`
 	AmountBoxes   int             `json:"amount_boxes"`
-	SubOrders     []SubOrderModel `json:"sub_orders"`
+	SubOrders     []SubOrderModel `json:"sub_orders,omitempty"`
 }
 
 // GET /orders/big/build - used by /orders/big page
@@ -56,4 +56,13 @@ type BigPalletFinishResponseModel struct {
 	Success    bool   `json:"success"`
 	Error      string `json:"error"`
 	LastPallet bool   `json:"last_pallet"`
+}
+
+// GET /shipment/ready
+
+type ShipmentPalletModel struct {
+	Num         int    `json:"num"`
+	PalletNum   int    `json:"pallet_num"`
+	Barcode     string `json:"barcode"`
+	AmountBoxes int    `json:"amount_boxes"`
 }

@@ -78,6 +78,9 @@ func main() {
 	} else {
 		// otherwise use embedded statics
 		ec.Use(middleware.Static(path.Join("ui", "build")))
+		ec.GET("/*", func(c echo.Context) error {
+			return c.File(path.Join("ui", "build", "index.html"))
+		})
 	}
 
 	// everything else is restricted
@@ -92,6 +95,9 @@ func main() {
 	api.GET("/orders/big/pallet/:id", handlers.GetBigPalletOrders)
 	api.GET("/orders/big/pallet/:id/barcode/:barcode", handlers.GetBigPalletBarcodeOrders)
 	api.POST("/orders/big/pallet/:id/finish", handlers.FinishBigPalletOrders)
+	api.GET("/shipment/ready", handlers.GetReadyForShipment)
+	api.GET("/shipment/pallet/:id", handlers.GetPalletShipment)
+	api.POST("/shipment/pallet/:id/finish", handlers.FinishPalletShipment)
 	// ------------------------------------------------
 
 	// start server
