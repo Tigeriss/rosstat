@@ -18,7 +18,7 @@ import {OrdersPalletPage} from "./page/ordersPallet";
 import {ShipmentPage} from "./page/shipment";
 import {ShipmentPalletPage} from "./page/shipmentPallet";
 
-const SessionContext = React.createContext(new Session());
+const SessionContext = React.createContext(new Session(true));
 
 export function useSession(): Session {
     return useContext(SessionContext);

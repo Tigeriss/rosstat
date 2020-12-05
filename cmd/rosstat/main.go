@@ -85,10 +85,10 @@ func main() {
 	api.Use(middleware.JWT([]byte(handlers.LoginSecretKey)))
 
 	// ---- ALL API ENDPOINTS ARE DEFINED HERE !!! ----
-	api.GET("/orders", handlers.GetOrders)
 	api.GET("/orders/build", handlers.GetToBuildOrders)
-	api.GET("/orders/small/build", handlers.GetSmallToBuildOrders)
-	api.PUT("/orders/small/build", handlers.PutSmallToBuildOrders)
+	api.GET("/orders/big/build/:id", handlers.GetBigToBuildOrders)
+	api.GET("/orders/small/build/:id", handlers.GetSmallToBuildOrders)
+	api.POST("/orders/small/build/:id/finish", handlers.FinishSmallToBuildOrders)
 	// ------------------------------------------------
 
 	// start server

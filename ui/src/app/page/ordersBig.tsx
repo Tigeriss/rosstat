@@ -74,7 +74,8 @@ export function OrdersBigPage() {
     const history = useHistory();
 
     useEffect(() => {
-        session.fetchBigOrdersToBuild(parseInt(id)).catch(console.error);
+        session.currentOrderId = parseInt(id);
+        session.fetchBigOrdersToBuild().catch(console.error);
     }, [session, id])
 
     return <Observer>{() =>

@@ -1,6 +1,7 @@
 import {Session} from "../store/session";
 import {request} from "./request";
 
+
 export interface SubOrderModel {
     is_small: boolean;
     order_caption: string;
@@ -18,7 +19,6 @@ export interface OrdersModel {
     amount_pallets: number;
     amount_boxes: number;
     sub_orders: SubOrderModel[];
-    opened: boolean;
 }
 
 
@@ -34,4 +34,15 @@ export interface BigOrdersModel {
 
 export async function getBigOrdersToBuild(session: Session, id: number): Promise<BigOrdersModel[]> {
     return await request(session, `orders/big/build/${id}`, {}, "GET");
+}
+
+
+export async function getSmallOrdersToBuild(session: Session, id: number): Promise<BigOrdersModel[]> {
+    return await request(session, `orders/small/build/${id}`, {}, "GET");
+}
+
+export async function finishOrders(session: Session, orderId: number, preparedBoxes: string[]): Promise<void> {
+    return await request(session, `orders/small/build/${orderId}/finish`, {
+        boxes: preparedBoxes
+    }, "POST");
 }
