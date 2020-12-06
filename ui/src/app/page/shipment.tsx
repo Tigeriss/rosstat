@@ -1,7 +1,7 @@
-import React from "react";
+import React, {useState} from "react";
 import {Observer} from "mobx-react";
 import {Layout} from "../component/layout";
-import {Header, Table} from "semantic-ui-react";
+import {Form, Header, Table} from "semantic-ui-react";
 import {useSession} from "../app";
 import {useHistory} from "react-router-dom";
 import {Session} from "../../store/session";
@@ -28,10 +28,22 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
 export function ShipmentPage() {
     const session = useSession();
     const history = useHistory();
+    const [filter, setFilter] = useState("");
+    const normFilter = filter.trim().toLocaleLowerCase();
 
     return <Observer>{() =>
         <Layout>
             <Header>Отгрузка</Header>
+
+            <Form>
+                <Form.Group>
+                    <Form.Field>
+                        <label>Фильтр:</label>
+                        <input type="text" value={filter} onChange={e => setFilter(e.target.value)}/>
+                    </Form.Field>
+                </Form.Group>
+            </Form>
+
 
             <Table celled selectable singleLine>
                 <Table.Header>
@@ -47,7 +59,8 @@ export function ShipmentPage() {
                 </Table.Header>
 
                 <Table.Body>
-                    {session.currentShipments?.map?.(renderRow.bind(null, history, session))}
+                    {session.currentShipments?.filter(o => normFilter.length === 0 || o.order_caption.toLowerCase().includes(filter))
+                        .map(renderRow.bind(null, history, session))}
                 </Table.Body>
             </Table>
 
