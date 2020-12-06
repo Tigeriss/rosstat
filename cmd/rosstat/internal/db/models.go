@@ -1,5 +1,39 @@
 package db
 
+// internal models
+
+// good itself. hardcoded because of problems with id
+type Good struct {
+	Type        int    `db:"num" json:"num"`
+	Name        string `db:"name" json:"name"`
+	Run         int    `db:"run" json:"run"`
+	AmountInBox int    `db:"amount_in_box" json:"amount_in_box"`
+	FirstID     int    `db:"first_id" json:"first_id"`
+	LastID      int    `db:"last_id" json:"last_id"`
+}
+
+type PalletRegistryGoodsData struct {
+	good Good
+	boxes int
+}
+
+// the order
+type Order struct {
+	Id        int    `db:"id" json:"id"`
+	NumOrder  string `db:"num_order" json:"num_order"`
+	Contract  string `db:"contract" json:"contract"`
+	Run       int    `db:"run" json:"run"`
+	Customer  string `db:"customer" json:"customer"`
+	OrderName string `db:"order_name" json:"order_name"`
+	Address   string `db:"address" json:"address"`
+}
+
+type PalletInfo struct {
+	barcode string
+	palletNum int
+	boxes int
+}
+
 // GET /orders
 
 type SubOrderModel struct {
