@@ -81,8 +81,9 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 
 	// log.Println(orderID)
 	// log.Println(req.Boxes)
+	us := ctx.User().Login
 
-	boxesAmount, err := db.PutSmallOrderToDB(ctx.DB(), orderID, req.Boxes, ctx.User().Login)
+	boxesAmount, err := db.PutSmallOrderToDB(ctx.DB(), orderID, req.Boxes, us)
 	if err != nil{
 		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
 		return err
@@ -102,35 +103,6 @@ func GetBigPalletOrders(c echo.Context) error {
 
 	// get the data by orderID
 	result, err := db.GetOrderListForPallets(ctx.DB(), orderID)
-	// 	db.BigPalletModel{
-	// 	PalletNum: 3,
-	// 	Types: []db.BigOrdersModel{
-	// 		{
-	// 			Type:     1,
-	// 			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
-	// 		},
-	// 		{
-	// 			Type:     2,
-	// 			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
-	// 		},
-	// 		{
-	// 			Type:     3,
-	// 			FormName: "Форма №1. Записная книжечка Выгебало",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 	},
-	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -147,8 +119,8 @@ func GetBigPalletNum(c echo.Context) error {
 		return err
 	}
 
-	log.Println(num)
 	log.Println(orderID)
+	log.Println(num)
 
 	result := db.PrintPalletModel{
 		OrderCaption:   "О-20-123-РОССТАТ 2",
@@ -234,7 +206,8 @@ func FinishBigPalletOrders(c echo.Context) error {
 	if len(req.Barcodes) > 0 && req.Barcodes[0] == "111" {
 		result = db.BigPalletFinishResponseModel{
 			Success: false,
-			Error:   "Невозможно завершить паллету",
+			Error:   "Это последняя паллета, но не собран малый подзаказ(сборные короба)." +
+				" Нельзя завершить последнюю паллету без сборных коробов.",
 		}
 	} else if len(req.Barcodes) > 0 && req.Barcodes[0] == "221" {
 		result = db.BigPalletFinishResponseModel{

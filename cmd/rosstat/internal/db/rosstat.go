@@ -150,7 +150,7 @@ func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, erro
 	}
 
 	var allCompletedBoxes [27]int
-	allCompletedBoxIds, err := GetCompletedBoxesAmount(db, orderId)
+	allCompletedBoxIds, err := GetCompletedBoxesIds(db, orderId)
 	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
@@ -329,7 +329,6 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
-	log.Println(statement)
 
 	// get total amount of every good type
 	rows, err := db.Query(statement)
@@ -347,7 +346,7 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 			&amounts[18], &amounts[19], &amounts[20],
 			&amounts[21], &amounts[22], &amounts[23],
 			&amounts[24], &amounts[25])
-		log.Println(amounts)
+
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return []int{0}, err
@@ -411,7 +410,34 @@ func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
+func GetCompletedBoxesAmount(db *sql.DB, orderId int)([]int, error){
+	var result []int
+	var amounts[26]int
+	statement := "select id from rosstat.boxes where pallet_id in " +
+		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ") order by id;"
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error query select all boxes amount")
+		return nil, err
+	}
+	boxId := 0
+	for rows.Next() {
+		err = rows.Scan(&boxId)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
+		good := GetProductByBoxID(boxId)
+		amounts[good.Type - 1] ++
+
+	}
+	for i :=0; i < 26; i++ {
+		result = append(result, amounts[i])
+	}
+	return result, nil
+}
+
+func GetCompletedBoxesIds(db *sql.DB, orderId int) ([]int, error) {
 	var result []int
 	statement := "select id from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
@@ -429,11 +455,6 @@ func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 			return nil, err
 		}
 		result = append(result, boxId)
-	}
-	if result == nil{
-		for i:= 0; i < 26; i++ {
-			result = append(result, 0)
-		}
 	}
 	return result, nil
 }
@@ -493,9 +514,9 @@ func getSmallBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
 // Call it after button "combined boxes fully completed" pressed
 // update data in rosstat_orders - subtract amount of goods that were completed
 // we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
-func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, userName string) (int, error) {
-
-	err := createSmallBoxesRecord(db , orderId, boxIds, userName)
+func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, us string) (int, error) {
+	log.Println(us + " in PutSmallOrderToDB")
+	err := createSmallBoxesRecord(db , orderId, boxIds, us)
 	if err != nil {
 		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
 		return 0, err
@@ -504,51 +525,27 @@ func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, userName string
 	return len(boxIds), nil
 }
 
-// TODO: update data in rosstat_orders - subtract amount of goods that were completed// Call it after button "Pallet is done" pressed and no error about small order completion, if this pallet is last
-func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, int, int, error) {
+func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []int, userName string) (int, int, int, error) {
 	// id for pallet forms from order id and pallet number
 	palletId, err := strconv.Atoi(strconv.Itoa(orderId) + strconv.Itoa(palletNum)) // result like: if orderId 1264 + palletNum 7 will be 12647
 	if err != nil {
 		log.Println("Cannot convert pallet id to int: " + err.Error())
 		return 0, 0, 0, err
 	}
-	// TODO: put in db: insert into rosstat.pallets id, num, order_id values palletId, palletNum, orderId Error check!!!
-	err = createBoxesRecord(palletId, boxes, userName)
+	statement := "insert into rosstat.pallets values (" + strconv.Itoa(orderId) + strconv.Itoa(palletNum) + ", " +
+		strconv.Itoa(palletNum) +", " + strconv.Itoa(orderId) + ")"
+	_, err = db.Query(statement)
+	if err != nil{
+		log.Println("error execute query to insert boxes for order")
+		return 0, 0, 0, err
+	}
+	err = createBoxesRecord(db, palletId, boxes, userName)
 	if err != nil {
 		log.Println("Cannot convert pallet id to int: " + err.Error())
 		return 0, 0, 0, err
 	}
 
 	return palletId, orderId, palletNum, nil
-}
-
-// Mostly this should be called when we start a new order. But can be called if order is not complete and closed by accidence or because of new shift
-func GetLastPalletNumBuOrderId(orderId int) (int, error) {
-	palletNum := 0
-	// TODO: select max(num) from rosstat.pallets where oder_id = orderId and put it into palletNum  Error check!!!
-	// if there is no pallets with this order_id - return 0, it means we have no pallets for this order yet
-	return palletNum, nil
-}
-
-// this list is for small part of order, for combined boxes(27 type) Called when small order clicked
-func GetOrderListForPieces(orderId int) ([]GoodOrdered, error) {
-	var result []GoodOrdered
-	for i := 0; i < 26; i++ {
-		tmp := GoodOrdered{}
-		tmp.Good = GetProductByBoxID(i + 1)
-		amount := 0
-		// TODO: select strconv.Itoa(i+1) from rosstat.rosstat_orders where id = orderId. Put result into amount Error check!!!
-		tmp.Amount = GetPiecesOfThisProduct(tmp.Good, amount) // here we get amount of pieces, not boxes of this product!
-		result = append(result, tmp)
-	}
-	return result, nil
-}
-
-// ??
-func GetOrderByNumber(orderNumber string) Order {
-	order := Order{}
-	// TODO: fill structure from db: select * from rosstat.rosstat_orders where num_order = orderNumber; for every good - call GetProductByID Error check!!!
-	return order
 }
 
 // get amount of whole boxes of particular good
@@ -558,36 +555,8 @@ func GetWholeBoxesOfThisProduct(product Good, totalAmount int) int {
 
 // get amount of pieces of particular good for combined box
 func GetPiecesOfThisProduct(product Good, totalAmount int) int {
-	log.Println("total: " + strconv.Itoa(totalAmount) + ", Amount in a box: " + strconv.Itoa(product.AmountInBox))
+	// log.Println("total: " + strconv.Itoa(totalAmount) + ", Amount in a box: " + strconv.Itoa(product.AmountInBox))
 	return totalAmount % product.AmountInBox
-}
-
-// returns amount of boxed for each type of good got from ids array
-func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds []int) ([27]int, error) {
-	var result [27]int
-	for i := 0; i < len(boxIds); i++ {
-		goodType := GetProductByBoxID(boxIds[i]).Type
-		boxIds[goodType]++
-	}
-	return result, nil
-}
-
-// returns amount of pieces for each type of good got from ids array
-func GetAmountOfPiecesOfGood(orderId int) ([26]int, error) {
-	var result [26]int
-	statement := "select "
-	for i := 1; i < 27; i++ {
-		statement += strconv.Itoa(i) + ", "
-	}
-	statement = strings.TrimRight(statement, ",")
-	statement += " from rosstat.rosstat_orders where id = "
-	statement += strconv.Itoa(orderId)
-	// TODO: exec statement(notice if in cell null - it means 0), put to result
-	for i := 0; i < 26; i++ {
-		// we got total amount of every good here, but we need only pieces, so update result
-		result[i] = GetPiecesOfThisProduct(GetProductByBoxID(i+1), result[i])
-	}
-	return result, nil
 }
 
 func GetProductByBoxID(id int) Good {
@@ -989,47 +958,36 @@ func GetProductByType(t int) Good {
 }
 
 // put data in rosstat.boxes
-func createBoxesRecord(palletId int, boxes []int, userName string) error {
-	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, user_name
+func createBoxesRecord(db *sql.DB,palletId int, boxes []int, us string) error {
+	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, us_name
 	palletIdStr := strconv.Itoa(palletId)
 	for i := 0; i < len(boxes); i++ {
-		statement += "(" + strconv.Itoa(boxes[i]) + ", " + palletIdStr + ", " + userName + "),"
+		statement += "(" + strconv.Itoa(boxes[i]) + ", " + palletIdStr + ", '" + us + "'),"
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += ";"
-	// TODO: put in db statement Error check!!!
-	return nil
-}
-
-// put data in rosstat.small_boxes
-func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, userName string) error {
-	statementInsert := "insert into rosstat.small_boxes values "
-	for i := 0; i < len(boxIds); i++ {
-		statementInsert += "(" + boxIds[i] + ", " + strconv.Itoa(orderId) + ", " + userName + "),"
-	}
-	statementInsert = strings.TrimRight(statementInsert, ",")
-	statementInsert += ";"
-	_, err := db.Query(statementInsert)
+	_, err := db.Query(statement)
 	if err != nil{
-		log.Println("error execute query to insert small boxes for order")
+		log.Println("error execute query to insert boxes for order")
 		return err
 	}
 	return nil
 }
 
-// subtract collected boxes from order
-func updateDataInRosstatOrdersWithBoxes() error {
-	return nil
-}
-
-// subtract collected pieces of goods from order
-func updateDataInRosstatOrdersWithPieces(complectedGoods [26]int) error {
-	statementUpdate := "update rosstat.rosstat_orders set "
-	for i := 1; i < 27; i++ {
-		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " + strconv.Itoa(complectedGoods[i-1]) + ", "
+// put data in rosstat.small_boxes
+func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, us string) error {
+	log.Println(us + " in createSmallBoxesRecord")
+	statementInsert := "insert into rosstat.small_boxes values "
+	for i := 0; i < len(boxIds); i++ {
+		statementInsert += "(" + boxIds[i] + ", " + strconv.Itoa(orderId) + ", '" + us + "'),"
 	}
-	statementUpdate = strings.TrimRight(statementUpdate, ",")
-	statementUpdate += ";"
-	// TODO: run statement Error check!!!
+	statementInsert = strings.TrimRight(statementInsert, ",")
+	statementInsert += ";"
+	log.Println("st: " + statementInsert)
+	_, err := db.Query(statementInsert)
+	if err != nil{
+		log.Println("error execute query to insert small boxes for order")
+		return err
+	}
 	return nil
 }
