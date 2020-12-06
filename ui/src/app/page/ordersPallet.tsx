@@ -8,7 +8,7 @@ import {Button, Divider, Form, Grid, Header, Input, Message, Table} from "semant
 import {Session} from "../../store/session";
 
 function renderTypes(type: {type: BigOrdersModel, barcode: string | null}, i: number) {
-    return <Table.Row key={i}>
+    return <Table.Row key={i} positive={(type.barcode ?? "").length > 0}>
         <Table.Cell>{type.type.form_name}</Table.Cell>
         <Table.Cell width={3}>{type.barcode}</Table.Cell>
     </Table.Row>
@@ -93,7 +93,10 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
         </Grid>
         <Table celled singleLine collapsing>
             <Table.Body>
-                {session.bigPalletOrderMatches.map(renderTypes)}
+                {session.bigPalletOrderMatches
+                    .slice()
+                    .sort((a, b) => (a.barcode?.length ?? 0) > 0 && (b.barcode?.length ?? 0) === 0 ? 1 : 0)
+                    .map(renderTypes)}
             </Table.Body>
             <Table.Footer>
                 <Table.Row>

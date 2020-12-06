@@ -2,6 +2,7 @@ import React, {useEffect, useState} from "react";
 import {useSession} from "../app";
 import {useParams} from "react-router-dom";
 import {PrintPalletModel, PrintPalletRegisterModel} from "../../api/orders";
+import {Barcode} from "../component/barcode";
 
 const stylesLabel: React.CSSProperties = {
     breakAfter: "page",
@@ -43,7 +44,7 @@ export function PalletPrint() {
             <h2 style={hStyles}>{print.address}</h2>
             <h2 style={hStyles}>{print.provider}</h2>
             <h2 style={hStyles}>{print.contract_number}</h2>
-            <h2 style={hStyles}>{print.barcode}</h2>
+            <Barcode value={print.barcode ?? ""}/>
             <h2 style={hStyles}>Паллет №{num}</h2>
         </div>
         <div style={{padding: "30px"}}>

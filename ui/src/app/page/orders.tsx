@@ -1,14 +1,16 @@
 import {Observer} from "mobx-react";
-import React, {useEffect} from "react";
+import React, {useState} from "react";
 import {useHistory} from "react-router-dom";
 import {useSession} from "../app";
 import {Layout} from "../component/layout";
-import {Header, Table} from "semantic-ui-react";
+import {Form, Header, Table} from "semantic-ui-react";
 import {OrdersModel, SubOrderModel} from "../../api/orders";
 import {Session} from "../../store/session";
 
 function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: OrdersModel) {
-    const rows = [<Table.Row warning onClick={() => session.openedOrders[order.id] = !session.openedOrders[order.id]} key={order.id}>
+    const rows = [<Table.Row warning
+                             onClick={() => session.openedOrders[order.id] = !session.openedOrders[order.id]}
+                             key={order.id}>
         <Table.Cell width="1">{order.num}</Table.Cell>
         <Table.Cell width="3" singleLine>{order.order_caption}</Table.Cell>
         <Table.Cell width="2">{order.customer}</Table.Cell>
@@ -20,7 +22,9 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
 
     const next = (sub: SubOrderModel) => {
         if (sub.is_small) {
-            history.push(`/orders/small/${order.id}`);
+            if (sub.amount_boxes === 0) {
+                history.push(`/orders/small/${order.id}`);
+            }
         } else {
             history.push(`/orders/big/${order.id}`);
         }
@@ -30,12 +34,13 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
         let n = 0;
         for (const sub of order.sub_orders) {
             rows.push(
-                <Table.Row key={`${order.id}-${n}`} onClick={() => next(sub)}>
-                    <Table.Cell />
+                <Table.Row disabled={sub.amount_boxes > 0}
+                    key={`${order.id}-${n}`} onClick={() => next(sub)}>
+                    <Table.Cell/>
                     <Table.Cell>{sub.order_caption}</Table.Cell>
-                    <Table.Cell />
-                    <Table.Cell />
-                    <Table.Cell />
+                    <Table.Cell/>
+                    <Table.Cell/>
+                    <Table.Cell/>
                     <Table.Cell>{sub.amount_pallets}</Table.Cell>
                     <Table.Cell>{sub.amount_boxes}</Table.Cell>
                 </Table.Row>
@@ -49,10 +54,21 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
 export function OrdersPage() {
     const session = useSession();
     const history = useHistory();
+    const [filter, setFilter] = useState("");
+    const normFilter = filter.trim().toLocaleLowerCase();
 
     return <Observer>{() =>
         <Layout>
             <Header>Комплектование</Header>
+
+            <Form>
+                <Form.Group>
+                    <Form.Field>
+                        <label>Фильтр:</label>
+                        <input type="text" value={filter} onChange={e => setFilter(e.target.value)}/>
+                    </Form.Field>
+                </Form.Group>
+            </Form>
 
             <Table celled selectable>
                 <Table.Header>
@@ -68,7 +84,8 @@ export function OrdersPage() {
                 </Table.Header>
 
                 <Table.Body>
-                    {session.ordersToBuild?.map?.(renderRow.bind(null, history, session))}
+                    {session.ordersToBuild?.filter(o => normFilter.length === 0 || o.order_caption.toLowerCase().includes(filter))
+                        .map(renderRow.bind(null, history, session))}
                 </Table.Body>
             </Table>
 
