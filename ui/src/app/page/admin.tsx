@@ -27,8 +27,12 @@ export function Admin() {
     const [user, setUser] = useState<User>({login: "", password: "", role: "admin"});
 
     useEffect(() => {
+        session.curPage = "admin";
         session.fetchUsers().catch(console.error);
-    });
+        return () => {
+            session.curPage = "none";
+        }
+    }, [session]);
 
     const addUser = async () => {
         await session.addUser(user);

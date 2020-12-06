@@ -1,8 +1,8 @@
 import React, {useEffect} from "react";
 import {Observer} from "mobx-react";
 import {Layout} from "../component/layout";
-import {useHistory, useParams} from "react-router-dom";
-import {Button, Grid, Header, Icon, Message, Table} from "semantic-ui-react";
+import {Link, useHistory, useParams} from "react-router-dom";
+import {Button, Dimmer, Grid, Header, Icon, Loader, Message, Table} from "semantic-ui-react";
 import {useSession} from "../app";
 import {BigOrdersModel, OrdersModel} from "../../api/orders";
 
@@ -19,12 +19,6 @@ function renderForm(form: BigOrdersModel) {
 }
 
 function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history: ReturnType<typeof useHistory>) {
-    if (order == null) {
-        return <Message warning>
-            Заказ не найден
-        </Message>;
-    }
-
     const createPallet = () => {
         history.push(`/orders/pallet/${order?.id}`);
     }
@@ -32,15 +26,15 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
     return <Grid columns={2} >
         <Grid.Row>
             <Grid.Column>
-                <Header sub>Заказ:</Header> {order.order_caption}
+                <Header sub>Заказ:</Header> {order?.order_caption ?? "<ОТСУТСТВУЕТ>"}
             </Grid.Column>
             <Grid.Column>
-                <Header sub>Заказчик:</Header> {order.customer}
+                <Header sub>Заказчик:</Header> {order?.customer ?? "<ОТСУТСТВУЕТ>"}
             </Grid.Column>
         </Grid.Row>
         <Grid.Row>
             <Grid.Column>
-                <Header sub>Адрес:</Header> {order.address}
+                <Header sub>Адрес:</Header> {order?.address ?? "<ОТСУТСТВУЕТ>"}
             </Grid.Column>
             <Grid.Column>
                 <Button primary onClick={createPallet}>Создать паллету</Button>
@@ -52,15 +46,15 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
                     <Table.Header>
                         <Table.Row>
                             <Table.HeaderCell />
-                            <Table.HeaderCell>Всего</Table.HeaderCell>
-                            <Table.HeaderCell>Собр.</Table.HeaderCell>
-                            <Table.HeaderCell>Ост.</Table.HeaderCell>
-                            <Table.HeaderCell>Статус.</Table.HeaderCell>
+                            <Table.HeaderCell width={1}>Всего</Table.HeaderCell>
+                            <Table.HeaderCell width={1}>Собр.</Table.HeaderCell>
+                            <Table.HeaderCell width={1}>Ост.</Table.HeaderCell>
+                            <Table.HeaderCell width={1}>Статус.</Table.HeaderCell>
                         </Table.Row>
                     </Table.Header>
 
                     <Table.Body>
-                        {forms.map(renderForm)}
+                        {forms?.map(renderForm)}
                     </Table.Body>
                 </Table>
             </Grid.Column>
@@ -74,12 +68,25 @@ export function OrdersBigPage() {
     const history = useHistory();
 
     useEffect(() => {
+        session.curPage = "orders-big";
+        session.breadcrumbs = [
+            { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
+            { key: 'big', content: `Короба №${id}`, active: true },
+        ];
         session.currentOrderId = parseInt(id);
+        session.fetchOrdersToBuild().catch(console.error);
         session.fetchBigOrdersToBuild().catch(console.error);
+        return () => {
+            session.curPage = "none";
+        }
     }, [session, id])
 
     return <Observer>{() =>
         <Layout>
+            <Dimmer inverted active={session.findOrder(parseInt(id)) == null}>
+                <Loader/>
+            </Dimmer>
+
             {renderOrder(session.findOrder(parseInt(id)), session.currentBigOrder, history)}
         </Layout>
     }</Observer>;
