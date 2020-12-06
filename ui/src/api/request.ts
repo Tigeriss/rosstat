@@ -20,7 +20,6 @@ export async function request<T>(session: Session, path: string, data: unknown, 
         request.body = JSON.stringify(data);
     }
 
-    console.log("request", `${API_URL + path}`, data);
     const req = await fetch(`${API_URL + path}`, request);
 
     if (!req.ok) {

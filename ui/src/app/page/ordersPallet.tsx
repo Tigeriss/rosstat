@@ -1,13 +1,13 @@
 import React, {useEffect} from "react";
 import {Observer} from "mobx-react";
 import {Layout} from "../component/layout";
-import {useHistory, useParams} from "react-router-dom";
+import {Link, useHistory, useParams} from "react-router-dom";
 import {useSession} from "../app";
 import {BigOrdersModel, BigPalletModel, OrdersModel} from "../../api/orders";
-import {Button, Divider, Form, Grid, Header, Input, Message, Table} from "semantic-ui-react";
+import {Button, Dimmer, Divider, Form, Grid, Header, Input, Loader, Message, Table} from "semantic-ui-react";
 import {Session} from "../../store/session";
 
-function renderTypes(type: {type: BigOrdersModel, barcode: string | null}, i: number) {
+function renderTypes(type: { type: BigOrdersModel, barcode: string | null }, i: number) {
     return <Table.Row key={i} positive={(type.barcode ?? "").length > 0}>
         <Table.Cell>{type.type.form_name}</Table.Cell>
         <Table.Cell width={3}>{type.barcode}</Table.Cell>
@@ -15,10 +15,9 @@ function renderTypes(type: {type: BigOrdersModel, barcode: string | null}, i: nu
 }
 
 function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history: ReturnType<typeof useHistory>, session: Session) {
-    if (order == null) {
-        return <Message warning>
-            Заказ не найден
-        </Message>;
+    const idp = `${session.currentOrderId}-${session.currentBigPalletOrder?.pallet_num}`;
+    if (session.currentOrderId == null || session.bigPalletOrderMatches[idp] == null) {
+        return;
     }
 
     const addBox = async (ev: React.KeyboardEvent<HTMLInputElement>) => {
@@ -26,7 +25,7 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
         if (ev.key === "Enter" && el.value.trim() !== "") {
             const barcode = el.value.trim();
             session.lastError = "";
-            if (session.bigPalletOrderMatches.some(v => v.barcode === barcode)) {
+            if (session.bigPalletOrderMatches[idp].some(v => v.barcode === barcode)) {
                 el.value = "";
                 session.lastError = "Такой штрих-код уже добавлен";
                 return;
@@ -52,11 +51,11 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
             session.lastError = "";
             const resp = await session.finishBigPallet({
                 pallet_num: pallet.pallet_num,
-                barcodes: session.bigPalletOrderMatches.filter(m => m.barcode).map(m => m.barcode ?? ""),
+                barcodes: session.bigPalletOrderMatches[idp].filter(m => m.barcode).map(m => m.barcode ?? ""),
             });
 
             if (resp.success) {
-                window.open(`/orders/pallet/${order.id}/print/${pallet.pallet_num}`);
+                window.open(`/orders/pallet/${order?.id}/print/${pallet.pallet_num}`);
                 if (resp.last_pallet) {
                     history.push(`/orders`);
                 } else {
@@ -79,7 +78,7 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
                     <Form error={session.lastError.length > 0}>
                         <Form.Field>
                             <label>Сканируйте штрих-код коробки:</label>
-                            <Input placeholder='202700030' onKeyPress={addBox}/>
+                            <Input placeholder='202700030' onKeyPress={addBox} type="number" min={1} />
                             <Message error>
                                 {session.lastError}
                             </Message>
@@ -87,13 +86,13 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
                     </Form>
                 </Grid.Column>
                 <Grid.Column>
-                    <Header sub>Для заказа №:</Header> {order.order_caption}
+                    <Header sub>Для заказа №:</Header> {order?.order_caption ?? "<ОТСУТСТВУЕТ>"}
                 </Grid.Column>
             </Grid.Row>
         </Grid>
         <Table celled singleLine collapsing>
             <Table.Body>
-                {session.bigPalletOrderMatches
+                {session.bigPalletOrderMatches[idp]
                     .slice()
                     .sort((a, b) => (a.barcode?.length ?? 0) > 0 && (b.barcode?.length ?? 0) === 0 ? 1 : 0)
                     .map(renderTypes)}
@@ -104,7 +103,7 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
                         Итого:
                     </Table.HeaderCell>
                     <Table.HeaderCell>
-                        {session.bigPalletOrderMatches.filter(f => (f.barcode?.length ?? 0) > 0).length}
+                        {session.bigPalletOrderMatches[idp].filter(f => (f.barcode?.length ?? 0) > 0).length}
                     </Table.HeaderCell>
                 </Table.Row>
             </Table.Footer>
@@ -120,15 +119,29 @@ export function OrdersPalletPage() {
     const history = useHistory();
 
     useEffect(() => {
+        session.curPage = "orders-pallet";
+        session.breadcrumbs = [
+            { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
+            { key: 'big', content: `Короба №${id}`, as: Link, to: `/orders/big/${id}` },
+            { key: 'pallet', content: `Паллета`, active: true },
+        ];
         session.lastError = "";
         session.currentOrderId = parseInt(id);
+        session.fetchOrdersToBuild().catch(console.error);
         session.fetchBigPallet().then(() => {
             session.clearPalletBarcode();
         }).catch(console.error);
+        return () => {
+            session.curPage = "none";
+        }
     }, [session, id])
 
     return <Observer>{() =>
         <Layout>
+            <Dimmer inverted active={session.findOrder(parseInt(id)) == null}>
+                <Loader/>
+            </Dimmer>
+
             {renderOrder(session.findOrder(parseInt(id)), session.currentBigPalletOrder, history, session)}
         </Layout>
     }</Observer>;

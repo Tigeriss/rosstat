@@ -2,8 +2,8 @@ import React, {useEffect} from "react";
 import {Observer} from "mobx-react";
 import {Layout} from "../component/layout";
 import {useSession} from "../app";
-import {useHistory, useParams} from "react-router-dom";
-import {Form, Grid, Header, Icon, Input, Message, Table} from "semantic-ui-react";
+import {Link, useHistory, useParams} from "react-router-dom";
+import {Dimmer, Form, Grid, Header, Icon, Input, Loader, Message, Table} from "semantic-ui-react";
 import {ShipmentModel, ShipmentPalletModel} from "../../api/shipment";
 import {Session} from "../../store/session";
 
@@ -65,7 +65,7 @@ function renderShipment(order: ShipmentModel | null, pallet: ShipmentPalletModel
     return <Grid>
         <Grid.Row>
             <Grid.Column width={4}>
-                <Header sub>Заказ №:</Header> {order?.order_caption}
+                <Header sub>Заказ №:</Header> {order?.order_caption ?? "<ОТСУТСТВУЕТ>"}
             </Grid.Column>
             <Grid.Column width={4}>
                 <Header sub>Паллет:</Header> {pallet.length}
@@ -79,7 +79,7 @@ function renderShipment(order: ShipmentModel | null, pallet: ShipmentPalletModel
         </Grid.Row>
         <Grid.Row>
             <Grid.Column width={6}>
-                <Header sub>Адрес:</Header> {order?.address}
+                <Header sub>Адрес:</Header> {order?.address ?? "<ОТСУТСТВУЕТ>"}
                 <br/>
                 <br/>
                 <br/>
@@ -142,14 +142,27 @@ export function ShipmentPalletPage() {
     const history = useHistory();
 
     useEffect(() => {
+        session.curPage = "shipment-pallet";
+        session.breadcrumbs = [
+            { key: 'shipment', content: 'Комплектование', as: Link, to: "/shipment" },
+            { key: 'big', content: `Заказ №${id}`, active: true },
+        ];
         session.lastError = "";
         session.sentPallets = {};
         session.currentShipmentId = parseInt(id);
+        session.fetchShipmentReady().catch(console.error);
         session.fetchShipmentPallet().catch(console.error);
+        return () => {
+            session.curPage = "none";
+        }
     }, [session, id])
 
     return <Observer>{() =>
         <Layout>
+            <Dimmer inverted active={session.findShipment(parseInt(id)) == null}>
+                <Loader/>
+            </Dimmer>
+
             {renderShipment(session.findShipment(parseInt(id)), session.currentShipmentPallet, history, session)}
         </Layout>
     }</Observer>;

@@ -1,9 +1,9 @@
 import {Observer} from "mobx-react";
-import React, {useState} from "react";
-import {useHistory} from "react-router-dom";
+import React, {useEffect, useState} from "react";
+import {Link, useHistory} from "react-router-dom";
 import {useSession} from "../app";
 import {Layout} from "../component/layout";
-import {Form, Header, Table} from "semantic-ui-react";
+import {Dimmer, Form, Header, Loader, Table} from "semantic-ui-react";
 import {OrdersModel, SubOrderModel} from "../../api/orders";
 import {Session} from "../../store/session";
 
@@ -11,13 +11,13 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
     const rows = [<Table.Row warning
                              onClick={() => session.openedOrders[order.id] = !session.openedOrders[order.id]}
                              key={order.id}>
-        <Table.Cell width="1">{order.num}</Table.Cell>
-        <Table.Cell width="3" singleLine>{order.order_caption}</Table.Cell>
-        <Table.Cell width="2">{order.customer}</Table.Cell>
-        <Table.Cell width="3">{order.address}</Table.Cell>
-        <Table.Cell width="1">{order.run}</Table.Cell>
-        <Table.Cell width="1">{order.amount_pallets}</Table.Cell>
-        <Table.Cell width="1">{order.amount_boxes}</Table.Cell>
+        <Table.Cell>{order.num}</Table.Cell>
+        <Table.Cell singleLine>{order.order_caption}</Table.Cell>
+        <Table.Cell>{order.customer}</Table.Cell>
+        <Table.Cell>{order.address}</Table.Cell>
+        <Table.Cell>{order.run}</Table.Cell>
+        <Table.Cell>{order.amount_pallets}</Table.Cell>
+        <Table.Cell>{order.amount_boxes}</Table.Cell>
     </Table.Row>];
 
     const next = (sub: SubOrderModel) => {
@@ -57,9 +57,22 @@ export function OrdersPage() {
     const [filter, setFilter] = useState("");
     const normFilter = filter.trim().toLocaleLowerCase();
 
+    useEffect(() => {
+        session.curPage = "orders";
+        session.breadcrumbs = [
+            { key: 'orders', content: 'Комплектование', active: true },
+        ];
+        session.fetchOrdersToBuild().catch(console.error);
+        return () => {
+            session.curPage = "none";
+        }
+    }, [session]);
+
     return <Observer>{() =>
         <Layout>
-            <Header>Комплектование</Header>
+            <Dimmer inverted active={(session.ordersToBuild?.length ?? 0) === 0}>
+                <Loader/>
+            </Dimmer>
 
             <Form>
                 <Form.Group>
@@ -73,13 +86,13 @@ export function OrdersPage() {
             <Table celled selectable>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell>№</Table.HeaderCell>
-                        <Table.HeaderCell>Заказ</Table.HeaderCell>
-                        <Table.HeaderCell>Заказчик</Table.HeaderCell>
-                        <Table.HeaderCell>Адрес</Table.HeaderCell>
-                        <Table.HeaderCell>Тираж</Table.HeaderCell>
-                        <Table.HeaderCell>Паллет</Table.HeaderCell>
-                        <Table.HeaderCell>Коробок</Table.HeaderCell>
+                        <Table.HeaderCell width="1">№</Table.HeaderCell>
+                        <Table.HeaderCell width="3">Заказ</Table.HeaderCell>
+                        <Table.HeaderCell width="2">Заказчик</Table.HeaderCell>
+                        <Table.HeaderCell width="3">Адрес</Table.HeaderCell>
+                        <Table.HeaderCell width="1">Тираж</Table.HeaderCell>
+                        <Table.HeaderCell width="1">Паллет</Table.HeaderCell>
+                        <Table.HeaderCell width="1">Коробок</Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
 

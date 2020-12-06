@@ -11,6 +11,8 @@ import {
     OrdersModel
 } from "../api/orders";
 import {ShipmentModel, ShipmentPalletModel} from "../api/shipment";
+import {SemanticShorthandCollection} from "semantic-ui-react/dist/commonjs/generic";
+import {BreadcrumbSectionProps} from "semantic-ui-react/dist/commonjs/collections/Breadcrumb/BreadcrumbSection";
 
 const storageKey = "user";
 
@@ -29,6 +31,8 @@ export class User {
 function formatDate(d: Date = new Date()) {
     return `${d.getDate().toString().padStart(2, "0")}.${d.getMonth().toString().padStart(2, "0")}.${d.getFullYear().toString().padStart(4, "0")} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
+
+type PalletMatches = Array<{type: BigOrdersModel, barcode: string | null}>;
 
 export class Session {
     private loggedUser: User | null = null;
@@ -52,6 +56,7 @@ export class Session {
     }
 
     currentOrderId: number | null = null;
+    curPage: "orders" | "orders-big" | "orders-small" | "orders-pallet" | "shipment" | "shipment-pallet" | "admin" | "none" = "none";
 
     // order related
     openedOrders: Record<string, boolean> = {};
@@ -61,7 +66,7 @@ export class Session {
     currentBigOrder: BigOrdersModel[] = [];
     currentSmallOrder: BigOrdersModel[] = [];
     currentBigPalletOrder: BigPalletModel = {pallet_num: 0, types: []};
-    bigPalletOrderMatches: Array<{type: BigOrdersModel, barcode: string | null}> = [];
+    bigPalletOrderMatches: Record<string, PalletMatches> = {};
 
     // shipment related
     currentShipmentId: number | null = null;
@@ -70,6 +75,8 @@ export class Session {
     sentPallets: Record<string, boolean> = {};
 
     lastError: string = "";
+
+    breadcrumbs: SemanticShorthandCollection<BreadcrumbSectionProps> = [];
 
     constructor(skip = false) {
         makeAutoObservable(this);
@@ -99,31 +106,28 @@ export class Session {
     }
 
     autoUpdate() {
-        if (window.location.pathname.includes("/print/")) {
+        if (window.location.pathname.includes("/print/") || this.currentUser?.role === "admin") {
             return;
         }
         clearInterval(this.autoUpdateInterval as any);
-        if (this.currentUser?.role === "admin") {
-            return;
-        }
 
-        if (this.currentUser?.role === "collector") {
-            this.fetchOrdersToBuild().catch(console.error);
+        this.autoUpdateInterval = setInterval(() => {
+            if (this.curPage === "orders") {
+                this.fetchOrdersToBuild().catch(console.error);
+            }
 
-            // this.autoUpdateInterval = setInterval(() => {
-            //     this.fetchOrdersToBuild().catch(console.error);
-            //     this.fetchBigOrdersToBuild().catch(console.error);
-            //     this.fetchBigPallet().catch(console.error);
-            // }, 1000) as any;
-        }
+            if (this.curPage === "orders-big") {
+                this.fetchBigOrdersToBuild().catch(console.error);
+            }
 
-        if (this.currentUser?.role === "storekeeper") {
-            this.fetchShipmentReady().catch(console.error);
+            if (this.curPage === "orders-pallet") {
+                this.fetchBigPallet().catch(console.error);
+            }
 
-            // this.autoUpdateInterval = setInterval(() => {
-            //     this.fetchShipmentReady().catch(console.error);
-            // }, 1000) as any;
-        }
+            if (this.curPage === "shipment") {
+                this.fetchShipmentReady().catch(console.error);
+            }
+        }, 1000) as any;
     }
 
     async login(login: string, password: string): Promise<boolean> {
@@ -167,8 +171,29 @@ export class Session {
         }
         this.currentBigPalletOrder = await orders.getBigPallet(this, this.currentOrderId);
 
-        if (this.bigPalletOrderMatches.length > 0 && this.bigPalletOrderMatches.length !== this.currentBigPalletOrder.types.length) {
-            // need that?
+        const idp = `${this.currentOrderId}-${this.currentBigPalletOrder.pallet_num}`;
+        const mts = this.bigPalletOrderMatches[idp];
+        if (mts?.length > 0 && mts.length !== this.currentBigPalletOrder.types.length) {
+            const types: number[] = [];
+            for (const t of this.currentBigPalletOrder.types) {
+                if (!types.includes(t.type)) {
+                    types.push(t.type);
+                }
+            }
+
+            for (const t of types) {
+                const newTypes = this.currentBigPalletOrder.types.filter(v => v.type === t);
+                const was = mts.filter(v => v.type.type === t).length;
+                const came = newTypes.length;
+                if (came > was) {
+                    for (let i = newTypes.length - 1; i >= was; i--) {
+                        this.bigPalletOrderMatches[idp].push({
+                            barcode: null,
+                            type: newTypes[i],
+                        })
+                    }
+                }
+            }
         }
     }
 
@@ -206,17 +231,23 @@ export class Session {
     }
 
     clearPalletBarcode() {
-        this.bigPalletOrderMatches = [];
-        for (const tp of this.currentBigPalletOrder.types) {
-            this.bigPalletOrderMatches.push({
-                barcode: null,
-                type: tp,
-            })
+        const idp = `${this.currentOrderId}-${this.currentBigPalletOrder.pallet_num}`;
+
+        if (this.bigPalletOrderMatches[idp] == null) {
+            this.bigPalletOrderMatches[idp] = [];
+            for (const tp of this.currentBigPalletOrder.types) {
+                this.bigPalletOrderMatches[idp].push({
+                    barcode: null,
+                    type: tp,
+                })
+            }
         }
     }
 
     matchPalletBarcode(type: number, barcode: string): boolean {
-        for (const obj of this.bigPalletOrderMatches) {
+        const idp = `${this.currentOrderId}-${this.currentBigPalletOrder.pallet_num}`;
+
+        for (const obj of this.bigPalletOrderMatches[idp]) {
             if (obj.type.type === type && obj.barcode == null) {
                 obj.barcode = barcode;
                 return true;
