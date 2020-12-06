@@ -49,7 +49,7 @@ export function PalletPrint() {
         </div>
         <div style={{padding: "30px"}}>
             <h1 style={{textAlign: "center"}}>Реестр паллеты №{num}</h1>
-            <h1>Задие {print.order_caption}</h1>
+            <h1>Задание {print.order_caption}</h1>
             <table className="print">
                 <thead>
                 <tr>
