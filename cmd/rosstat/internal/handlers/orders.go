@@ -149,7 +149,7 @@ func GetBigPalletNum(c echo.Context) error {
 		Address:        "107123, Москва",
 		Provider:       "Жирпром",
 		ContractNumber: "123-53322",
-		Barcode:        "111222333",
+		Barcode:        "123456789012",
 		Register:       []db.PrintPalletRegisterModel{
 			{
 				NumPP:    1,

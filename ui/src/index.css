@@ -10,7 +10,7 @@ body {
 }
 
 body.print {
-    background: transparent !important;
+    background: white !important;
     overflow-y: auto !important;
 }
 
