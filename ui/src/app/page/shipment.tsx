@@ -7,6 +7,7 @@ import {useHistory} from "react-router-dom";
 import {Session} from "../../store/session";
 import {OrdersModel, SubOrderModel} from "../../api/orders";
 import {ShipmentModel} from "../../api/shipment";
+import {runInAction} from "mobx";
 
 
 function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: ShipmentModel) {
@@ -32,11 +33,14 @@ export function ShipmentPage() {
     const normFilter = filter.trim().toLocaleLowerCase();
 
     useEffect(() => {
-        session.curPage = "shipment";
-        session.breadcrumbs = [
-            { key: 'shipment', content: 'Отгрузка', active: true },
-        ];
-        session.fetchShipmentReady().catch(console.error);
+        runInAction(() => {
+            session.curPage = "shipment";
+            session.breadcrumbs = [
+                {key: 'shipment', content: 'Отгрузка', active: true},
+            ];
+            session.fetchShipmentReady().catch(console.error);
+        });
+
         return () => {
             session.curPage = "none";
         }

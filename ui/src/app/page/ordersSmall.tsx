@@ -19,9 +19,10 @@ import {
     Table
 } from "semantic-ui-react";
 import {Session} from "../../store/session";
+import {runInAction} from "mobx";
 
 function renderForm(session: Session, form: BigOrdersModel, i: number) {
-    return <Table.Row key={`${form.form_name}-${form.total}-${form.built}`}>
+    return <Table.Row key={form.type}>
         <Table.Cell width="1">{i}</Table.Cell>
         <Table.Cell width="13">{form.form_name}</Table.Cell>
         <Table.Cell width="1">{form.total - form.built}</Table.Cell>
@@ -59,7 +60,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
                 <Form>
                     <Form.Field>
                         <label>Соберите коробку и отсканируйте штрих-код:</label>
-                        <Input placeholder='202700030' onKeyPress={addBox} type="number" min={1} />
+                        <Input placeholder='202700030' onKeyPress={addBox} type="number" min={1} autoFocus />
                     </Form.Field>
                 </Form>
                 <Header sub>Собрано коробов:</Header>
@@ -88,7 +89,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
                     </Table.Body>
                 </Table>
 
-                {forms.some((f, i) => session.completedBoxes[i] !== true)
+                {forms.some((f, i) => session.completedBoxes[i] !== true) || (session.preparedBoxes.length ?? 0) === 0
                     ? <Button disabled negative>Не все короба укомплектованы</Button>
                     : <Button positive onClick={sendOrder}>Сборные короба полностью укомплектованы</Button>
                 }
@@ -104,16 +105,19 @@ export function OrdersSmallPage() {
     const history = useHistory();
 
     useEffect(() => {
-        session.curPage = "orders-small";
-        session.breadcrumbs = [
-            { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
-            { key: 'big', content: `Сборные №${id}`, active: true },
-        ];
-        session.preparedBoxes = [];
-        session.completedBoxes = {};
-        session.currentOrderId = parseInt(id);
-        session.fetchOrdersToBuild().catch(console.error);
-        session.fetchSmallOrdersToBuild().catch(console.error);
+        runInAction(() => {
+            session.curPage = "orders-small";
+            session.breadcrumbs = [
+                { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
+                { key: 'big', content: `Сборные №${id}`, active: true },
+            ];
+            session.preparedBoxes = [];
+            session.completedBoxes = {};
+            session.currentOrderId = parseInt(id);
+            session.fetchOrdersToBuild().catch(console.error);
+            session.fetchSmallOrdersToBuild().catch(console.error);
+        });
+
         return () => {
             session.curPage = "none";
         }

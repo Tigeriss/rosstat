@@ -75,6 +75,7 @@ export class Session {
     sentPallets: Record<string, boolean> = {};
 
     lastError: string = "";
+    lastSuccess: string = "";
 
     breadcrumbs: SemanticShorthandCollection<BreadcrumbSectionProps> = [];
 
@@ -155,14 +156,27 @@ export class Session {
         if (this.currentOrderId == null) {
             return;
         }
-        this.currentBigOrder = await orders.getBigOrdersToBuild(this, this.currentOrderId);
+
+        const currentBigOrder = await orders.getBigOrdersToBuild(this, this.currentOrderId);
+
+        runInAction(() => {
+            this.currentBigOrder.forEach(v => this.currentBigOrder.pop());
+            currentBigOrder.forEach(v => this.currentBigOrder.push(v));
+        });
+
     }
 
     async fetchSmallOrdersToBuild(): Promise<void> {
         if (this.currentOrderId == null) {
             return;
         }
-        this.currentSmallOrder = await orders.getSmallOrdersToBuild(this, this.currentOrderId);
+
+        const currentSmallOrder = await orders.getSmallOrdersToBuild(this, this.currentOrderId);
+
+        runInAction(() => {
+            this.currentSmallOrder.forEach(v => this.currentSmallOrder.pop());
+            currentSmallOrder.forEach(v => this.currentSmallOrder.push(v));
+        });
     }
 
     async fetchBigPallet(): Promise<void> {
@@ -213,7 +227,7 @@ export class Session {
         if (this.currentOrderId == null) {
             return Promise.reject(new Error("orderId is null"));
         }
-        return  await orders.finishOrders(this, this.currentOrderId, this.preparedBoxes);
+        return await orders.finishOrders(this, this.currentOrderId, this.preparedBoxes);
     }
 
     async requestPalletType(barcode: string): Promise<BigPalletBarcodeModel> {
@@ -257,14 +271,23 @@ export class Session {
     }
 
     async fetchShipmentReady(): Promise<void> {
-        this.currentShipments = await shipment.getShipmentReady(this);
+        const currentShipments = await shipment.getShipmentReady(this);
+
+        runInAction(() => {
+            this.currentShipments.forEach(v => this.currentShipments.pop());
+            currentShipments.forEach(v => this.currentShipments.push(v));
+        });
     }
 
     async fetchShipmentPallet(): Promise<void> {
         if (this.currentShipmentId == null) {
             return;
         }
-        this.currentShipmentPallet = await shipment.getShipmentPallet(this, this.currentShipmentId);
+        const currentShipmentPallet = await shipment.getShipmentPallet(this, this.currentShipmentId);
+        runInAction(() => {
+            this.currentShipmentPallet.forEach(v => this.currentShipmentPallet.pop());
+            currentShipmentPallet.forEach(v => this.currentShipmentPallet.push(v));
+        });
     }
 
     async finishPalletShipment(): Promise<void> {

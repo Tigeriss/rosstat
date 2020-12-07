@@ -5,6 +5,7 @@ import {Link, useHistory, useParams} from "react-router-dom";
 import {Button, Dimmer, Grid, Header, Icon, Loader, Message, Table} from "semantic-ui-react";
 import {useSession} from "../app";
 import {BigOrdersModel, OrdersModel} from "../../api/orders";
+import {runInAction} from "mobx";
 
 function renderForm(form: BigOrdersModel) {
     return <Table.Row positive={form.total - form.built === 0} key={`${form.form_name}-${form.total}-${form.built}`}>
@@ -13,7 +14,7 @@ function renderForm(form: BigOrdersModel) {
         <Table.Cell width="1">{form.built}</Table.Cell>
         <Table.Cell width="1">{form.total - form.built}</Table.Cell>
         <Table.Cell width="1" negative={form.total - form.built > 0}>
-            {form.total - form.built === 0 ? <Icon name='checkmark' color="green" /> : <Icon name='close' color="red" />}
+            {form.total - form.built === 0 ? <Icon name='checkmark' color="green"/> : <Icon name='close' color="red"/>}
         </Table.Cell>
     </Table.Row>;
 }
@@ -23,7 +24,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
         history.push(`/orders/pallet/${order?.id}`);
     }
 
-    return <Grid columns={2} >
+    return <Grid columns={2}>
         <Grid.Row>
             <Grid.Column>
                 <Header sub>Заказ:</Header> {order?.order_caption ?? "<ОТСУТСТВУЕТ>"}
@@ -45,7 +46,7 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
                 <Table celled singleLine>
                     <Table.Header>
                         <Table.Row>
-                            <Table.HeaderCell />
+                            <Table.HeaderCell/>
                             <Table.HeaderCell width={1}>Всего</Table.HeaderCell>
                             <Table.HeaderCell width={1}>Собр.</Table.HeaderCell>
                             <Table.HeaderCell width={1}>Ост.</Table.HeaderCell>
@@ -63,19 +64,22 @@ function renderOrder(order: OrdersModel | null, forms: BigOrdersModel[], history
 }
 
 export function OrdersBigPage() {
-    const {id} = useParams<{id: string}>();
+    const {id} = useParams<{ id: string }>();
     const session = useSession();
     const history = useHistory();
 
     useEffect(() => {
-        session.curPage = "orders-big";
-        session.breadcrumbs = [
-            { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
-            { key: 'big', content: `Короба №${id}`, active: true },
-        ];
-        session.currentOrderId = parseInt(id);
-        session.fetchOrdersToBuild().catch(console.error);
-        session.fetchBigOrdersToBuild().catch(console.error);
+        runInAction(() => {
+            session.curPage = "orders-big";
+            session.breadcrumbs = [
+                {key: 'orders', content: 'Комплектование', as: Link, to: "/orders"},
+                {key: 'big', content: `Короба №${id}`, active: true},
+            ];
+            session.currentOrderId = parseInt(id);
+            session.fetchOrdersToBuild().catch(console.error);
+            session.fetchBigOrdersToBuild().catch(console.error);
+        });
+
         return () => {
             session.curPage = "none";
         }

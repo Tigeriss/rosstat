@@ -6,6 +6,7 @@ import {Layout} from "../component/layout";
 import {Dimmer, Form, Header, Loader, Table} from "semantic-ui-react";
 import {OrdersModel, SubOrderModel} from "../../api/orders";
 import {Session} from "../../store/session";
+import {runInAction} from "mobx";
 
 function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: OrdersModel) {
     const rows = [<Table.Row warning
@@ -35,7 +36,7 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
         for (const sub of order.sub_orders) {
             rows.push(
                 <Table.Row disabled={sub.is_small && sub.amount_boxes > 0}
-                    key={`${order.id}-${n}`} onClick={() => next(sub)}>
+                           key={`${order.id}-${n}`} onClick={() => next(sub)}>
                     <Table.Cell/>
                     <Table.Cell>{sub.order_caption}</Table.Cell>
                     <Table.Cell/>
@@ -58,11 +59,14 @@ export function OrdersPage() {
     const normFilter = filter.trim().toLocaleLowerCase();
 
     useEffect(() => {
-        session.curPage = "orders";
-        session.breadcrumbs = [
-            { key: 'orders', content: 'Комплектование', active: true },
-        ];
-        session.fetchOrdersToBuild().catch(console.error);
+        runInAction(() => {
+            session.curPage = "orders";
+            session.breadcrumbs = [
+                {key: 'orders', content: 'Комплектование', active: true},
+            ];
+            session.fetchOrdersToBuild().catch(console.error);
+        });
+
         return () => {
             session.curPage = "none";
         }
