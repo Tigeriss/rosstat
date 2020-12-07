@@ -21,8 +21,9 @@ import (
 	"rosstat/cmd/rosstat/internal/handlers"
 )
 
-var dbConnStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
-var port = 80
+//var dbConnStr = "postgres://bbs_portal:JL84KdM_32@localhost/bbs_print_portal?sslmode=disable"
+var dbConnStr = "postgres://bbs_portal:Piga1993@192.168.20.205/bbs_print_portal?sslmode=disable"
+var port = 9090
 var debugFlag = false
 
 func init() {

@@ -79,9 +79,16 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 		return err
 	}
 
-	log.Println(orderID)
-	log.Println(req.Boxes)
+	// log.Println(orderID)
+	// log.Println(req.Boxes)
+	us := ctx.User().Login
 
+	boxesAmount, err := db.PutSmallOrderToDB(ctx.DB(), orderID, req.Boxes, us)
+	if err != nil{
+		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
+		return err
+	}
+	log.Println(strconv.Itoa(boxesAmount) + " boxes were put in db")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
@@ -96,35 +103,6 @@ func GetBigPalletOrders(c echo.Context) error {
 
 	// get the data by orderID
 	result, err := db.GetOrderListForPallets(ctx.DB(), orderID)
-	// 	db.BigPalletModel{
-	// 	PalletNum: 3,
-	// 	Types: []db.BigOrdersModel{
-	// 		{
-	// 			Type:     1,
-	// 			FormName: "Форма №1. Записная книжечка переписчика (бла бла бла балб лабла бал)",
-	// 		},
-	// 		{
-	// 			Type:     2,
-	// 			FormName: "Форма №1. Записная книжечка Котофея Матвеевича",
-	// 		},
-	// 		{
-	// 			Type:     3,
-	// 			FormName: "Форма №1. Записная книжечка Выгебало",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 		{
-	// 			Type:     4,
-	// 			FormName: "Форма №1. Записная книжечка кадавра",
-	// 		},
-	// 	},
-	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -141,36 +119,39 @@ func GetBigPalletNum(c echo.Context) error {
 		return err
 	}
 
-	log.Println(num)
-	log.Println(orderID)
-
-	result := db.PrintPalletModel{
-		OrderCaption:   "О-20-123-РОССТАТ 2",
-		Address:        "107123, Москва",
-		Provider:       "Жирпром",
-		ContractNumber: "123-53322",
-		Barcode:        "123456789012",
-		Register:       []db.PrintPalletRegisterModel{
-			{
-				NumPP:    1,
-				Position: "Форма №2. Записная книжечка Котофея Матвеевича",
-				Amount:   10,
-				Boxes:    5,
-			},
-			{
-				NumPP:    2,
-				Position: "Форма №3. Записная книжечка Котофея Матвеевича",
-				Amount:   10,
-				Boxes:    5,
-			},
-			{
-				NumPP:    3,
-				Position: "Форма №4. Записная книжечка Котофея Матвеевича",
-				Amount:   10,
-				Boxes:    5,
-			},
-		},
+	result, err := db.GetDataForLabelAndRegistry(ctx.DB(), orderID, num)
+	if err != nil {
+		log.Println("error get data for label and registry" + err.Error())
+		return err
 	}
+	// 	PrintPalletModel{
+	//
+	// 	OrderCaption:   "О-20-123-РОССТАТ 2",
+	// 	Address:        "107123, Москва",
+	// 	Provider:       "Жирпром",
+	// 	ContractNumber: "123-53322",
+	// 	Barcode:        "123456789012",
+	// 	Register:       []db.PrintPalletRegisterModel{
+	// 		{
+	// 			NumPP:    1,
+	// 			Position: "Форма №2. Записная книжечка Котофея Матвеевича",
+	// 			Amount:   10,
+	// 			Boxes:    5,
+	// 		},
+	// 		{
+	// 			NumPP:    2,
+	// 			Position: "Форма №3. Записная книжечка Котофея Матвеевича",
+	// 			Amount:   10,
+	// 			Boxes:    5,
+	// 		},
+	// 		{
+	// 			NumPP:    3,
+	// 			Position: "Форма №4. Записная книжечка Котофея Матвеевича",
+	// 			Amount:   10,
+	// 			Boxes:    5,
+	// 		},
+	// 	},
+	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -179,30 +160,13 @@ func GetBigPalletNum(c echo.Context) error {
 
 func GetBigPalletBarcodeOrders(c echo.Context) error {
 	ctx := c.(*RosContext)
-	orderID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		return err
-	}
 
 	barcode, err := strconv.Atoi(c.Param("barcode"))
 	if err != nil {
 		return err
 	}
-
-	orderID = orderID
-
-	var result db.BigPalletBarcodeModel
-	if barcode < 100 {
-		result = db.BigPalletBarcodeModel{
-			Success: false,
-			Error:   "Товар с таким штрих-кодом не найден",
-		}
-	} else {
-		result = db.BigPalletBarcodeModel{
-			Success: true,
-			Type:    barcode % 10,
-		}
-	}
+	log.Println(barcode)
+	result := db.GetDataForGetBigPalletBarcodeOrders(barcode)
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -224,22 +188,11 @@ func FinishBigPalletOrders(c echo.Context) error {
 	log.Println(orderID)
 	log.Println(req)
 
-	var result db.BigPalletFinishResponseModel
-	if len(req.Barcodes) > 0 && req.Barcodes[0] == "111" {
-		result = db.BigPalletFinishResponseModel{
-			Success: false,
-			Error:   "Невозможно завершить паллету",
-		}
-	} else if len(req.Barcodes) > 0 && req.Barcodes[0] == "221" {
-		result = db.BigPalletFinishResponseModel{
-			Success:    true,
-			LastPallet: false,
-		}
-	} else {
-		result = db.BigPalletFinishResponseModel{
-			Success:    true,
-			LastPallet: true,
-		}
+	result, err := db.CreatePallet(ctx.DB(), orderID, req.PalletNum, req.Barcodes, ctx.User().Login)
+
+	if err != nil {
+		log.Println("error create pallet: " + err.Error())
+		return err
 	}
 
 	return ctx.JSON(http.StatusOK, result)

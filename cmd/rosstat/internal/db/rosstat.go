@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/lib/pq"
 	"log"
 	"strconv"
@@ -9,34 +10,8 @@ import (
 	"time"
 )
 
-// good itself. hardcoded because of problems with id
-type Good struct {
-	Type        int    `db:"num" json:"num"`
-	Name        string `db:"name" json:"name"`
-	Run         int    `db:"run" json:"run"`
-	AmountInBox int    `db:"amount_in_box" json:"amount_in_box"`
-	FirstID     int    `db:"first_id" json:"first_id"`
-	LastID      int    `db:"last_id" json:"last_id"`
-}
-
-// amount of ordered good of certain type
-type GoodOrdered struct {
-	Good   Good `db:"good" json:"good"`
-	Amount int  `db:"amount" json:"amount"`
-}
-
-// the order
-type Order struct {
-	Id        int    `db:"id" json:"id"`
-	NumOrder  string `db:"num_order" json:"num_order"`
-	Contract  string `db:"contract" json:"contract"`
-	Run       int    `db:"run" json:"run"`
-	Customer  string `db:"customer" json:"customer"`
-	OrderName string `db:"order_name" json:"order_name"`
-	Address   string `db:"address" json:"address"`
-}
-
 var traceEnabled = true
+
 func trace(name string, started time.Time) {
 	if traceEnabled {
 		log.Printf("Call: %s() - %s\n", name, time.Now().Sub(started))
@@ -49,15 +24,7 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 
 	var result []OrdersModel
 
-	// db, err := sql.Open("postgres", connStr)
-	// if err != nil {
-	// 	log.Println("error establish connection: " + err.Error())
-	// 	return nil, err
-	// }
-	//
-	// defer db.Close()
-
-	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false;"
+	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false order by id;"
 	rows, err := db.Query(statementGetOrders)
 	if err != nil {
 		log.Println("error query statementGetOrders - select all orders")
@@ -95,8 +62,8 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 			Customer:      order.Customer,
 			Address:       order.Address,
 			Run:           order.Run,
-			AmountPallets: 0,
-			AmountBoxes:   0,
+			AmountPallets: pallets,
+			AmountBoxes:   boxes + smallBoxes,
 			SubOrders: []SubOrderModel{
 				{
 					IsSmall:       false,
@@ -120,6 +87,97 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 		log.Println("error close row: " + err.Error())
 		return nil, err
 	}
+	return result, nil
+}
+
+// for /shipment
+func GetAllOrdersForShipment(db *sql.DB) ([]OrdersModel, error) {
+	defer trace("GetAllOrdersForShipment", time.Now())
+
+	var result []OrdersModel
+
+	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = true and shipped = false  order by id;"
+	rows, err := db.Query(statementGetOrders)
+	if err != nil {
+		log.Println("error query statementGetOrders - select all orders")
+		return nil, err
+	}
+
+	var index = 1
+	for rows.Next() {
+		order := Order{}
+		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer, &order.OrderName, &order.Address)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
+
+		boxes, err := getCompletedBoxesAmountForOrder(db, order.Id)
+		if err != nil {
+			log.Println("error get amount of box for order: " + err.Error())
+		}
+
+		pallets, err := getPalletsAmountForOrder(db, order.Id)
+		if err != nil {
+			log.Println("error get amount of pallets for order: " + err.Error())
+		}
+
+		smallBoxes, err := getSmallBoxesAmountForOrder(db, order.Id)
+		if err != nil {
+			log.Println("error get amount of combined boxes for order: " + err.Error())
+		}
+
+		tmp := OrdersModel{
+			ID:            order.Id,
+			Num:           index,
+			OrderCaption:  order.NumOrder + "-" + order.OrderName,
+			Customer:      order.Customer,
+			Address:       order.Address,
+			Run:           order.Run,
+			AmountPallets: pallets,
+			AmountBoxes:   boxes,
+			SubOrders: []SubOrderModel{
+				{
+					IsSmall:       false,
+					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
+					AmountPallets: pallets,
+					AmountBoxes:   boxes,
+				},
+				{
+					IsSmall:       true,
+					OrderCaption:  order.NumOrder + "-" + order.OrderName + " сборные",
+					AmountPallets: 0,
+					AmountBoxes:   smallBoxes,
+				},
+			},
+		}
+		result = append(result, tmp)
+		index++
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
+	return result, nil
+}
+
+func GetShipmentPalletModel(db *sql.DB, orderId int)([]ShipmentPalletModel, error){
+	var result []ShipmentPalletModel
+	allPalletInfos, err := GetAllPalletsBarcodesAndNums(db, orderId)
+	if err != nil{
+		log.Println("error get all pallets barcodes for order")
+		return nil, err
+	}
+	for i := 0; i < len(allPalletInfos); i++{
+		result = append(result, ShipmentPalletModel{
+			Num:         i + 1,
+			PalletNum:   allPalletInfos[i].palletNum,
+			Barcode:     allPalletInfos[i].barcode,
+			AmountBoxes: allPalletInfos[i].boxes,
+		})
+	}
+
 	return result, nil
 }
 
@@ -158,7 +216,7 @@ func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, erro
 	}
 
 	var allCompletedBoxes [27]int
-	allCompletedBoxIds, err := GetCompletedBoxesAmount(db, orderId)
+	allCompletedBoxIds, err := GetCompletedBoxesIds(db, orderId)
 	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
@@ -284,7 +342,7 @@ func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 	result.PalletNum = palNum + 1
 	allBoxes, err := GetBoxesToCompleteForOrder(db, orderId)
 	for i := 0; i < len(allBoxes); i++ {
-		good := GetProductByType(i+1)
+		good := GetProductByType(i + 1)
 		for s := 0; s < allBoxes[i]; s++ {
 			result.Types = append(result.Types, BigOrdersModel{
 				Type:     good.Type,
@@ -294,6 +352,194 @@ func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 			})
 		}
 	}
+	return result, nil
+}
+
+// Call it after button "combined boxes fully completed" pressed
+func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, us string) (int, error) {
+	log.Println(us + " in PutSmallOrderToDB")
+	err := createSmallBoxesRecord(db, orderId, boxIds, us)
+	if err != nil {
+		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
+		return 0, err
+	}
+
+	return len(boxIds), nil
+}
+
+// for print pallet label and registry
+func GetDataForLabelAndRegistry(db *sql.DB, orderId, palletNum int) (PrintPalletModel, error) {
+	var result PrintPalletModel
+
+	ord, err := GetOrderById(db, orderId)
+	if err != nil {
+		log.Println("error get order: " + err.Error())
+		return result, err
+	}
+
+	palletId := fmt.Sprintf("%d%d", orderId, palletNum)
+	result.OrderCaption = ord.NumOrder + "-" + ord.OrderName
+	result.Address = ord.Address
+	// TODO: ask about provider
+	result.Provider = "ООО ББС"
+	result.ContractNumber = ord.Contract
+
+	result.Barcode = fmt.Sprintf("%012s", palletId)
+	boxIdsForPallet, err := GetBoxIdsForPallet(db, palletId)
+	if err != nil {
+		log.Println("error get boxes for pallet: " + err.Error())
+		return result, err
+	}
+
+	dataForRegistry := [27]PalletRegistryGoodsData{}
+	for i := 0; i < len(boxIdsForPallet); i++{
+		good := GetProductByBoxID(boxIdsForPallet[i])
+		dataForRegistry[good.Type-1].good = good
+		dataForRegistry[good.Type -1].boxes++
+	}
+
+	var reg []PrintPalletRegisterModel
+	index := 1
+	for i := 0; i < len(dataForRegistry); i++{
+		var tmp = PrintPalletRegisterModel{}
+		if dataForRegistry[i].boxes > 0{
+			tmp.NumPP = index
+			tmp.Position = dataForRegistry[i].good.Name
+			tmp.Boxes = dataForRegistry[i].boxes
+			tmp.Amount = dataForRegistry[i].boxes * dataForRegistry[i].good.AmountInBox
+			reg = append(reg,tmp)
+			index++
+		}
+	}
+	result.Register = reg
+	return result, nil
+}
+
+func GetDataForGetBigPalletBarcodeOrders(barcode int)BigPalletBarcodeModel{
+	good := GetProductByBoxID(barcode)
+	if good.Type != 0{
+		return BigPalletBarcodeModel{
+			Success: true,
+			Type:    good.Type,
+			Error:   "",
+		}
+	}else{
+		return BigPalletBarcodeModel{
+			Success: false,
+			Type:    0,
+			Error:   "Товара с таким штрихкодом не существует! Проверьте короб",
+		}
+	}
+}
+
+func GetOrderById(db *sql.DB, orderId int) (Order, error) {
+	var result Order
+	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+	rows, err := db.Query(statementGetOrders)
+	if err != nil {
+		log.Println("error query statementGetOrders - select all orders")
+		return result, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&result.Id, &result.NumOrder, &result.Contract, &result.Run, &result.Customer, &result.OrderName, &result.Address)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+func GetBoxIdsForPallet(db *sql.DB, palletId string) ([]int, error){
+	var result []int
+	statement := "select id from rosstat.boxes where pallet_id = " + palletId + ";"
+	rows, err := db.Query(statement)
+	if err != nil{
+		log.Println("error get ids for pallet: " + err.Error())
+		return nil, err
+	}
+	id := 0
+	for rows.Next(){
+		rows.Scan(&id)
+		result = append(result, id)
+	}
+	return result, nil
+}
+
+func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string) (BigPalletFinishResponseModel, error) {
+
+	var result BigPalletFinishResponseModel
+	palletId := strconv.Itoa(orderId) + strconv.Itoa(palletNum)
+	isLast, isSmallCompleted := isPalletLastInOrder(db, orderId, boxes)
+	// 1. check if it's last pallet
+	if isLast {
+		// 2a. if true, check if small suborder in barcodes
+		if isSmallCompleted {
+			// 3a.a. if true - put data in db, update order as completed, return success, last - true
+			err := createPalletRecord(db, orderId, palletNum, palletId)
+			if err != nil {
+				log.Println("error create pallet record: " + err.Error())
+				return BigPalletFinishResponseModel{
+					Success:    false,
+					Error:      "Не удалось создать запись паллеты в базе данных",
+					LastPallet: true,
+				}, err
+			}
+			err = createBoxesRecord(db, palletId, boxes, us)
+			if err != nil {
+				log.Println("error create boxes record: " + err.Error())
+				return BigPalletFinishResponseModel{
+					Success:    false,
+					Error:      "Не удалось создать запись коробов в базе данных",
+					LastPallet: true,
+				}, err
+			}
+			err = completeTheOrder(db, orderId)
+			if err != nil {
+				log.Println("error update order to completed: " + err.Error())
+				return BigPalletFinishResponseModel{
+					Success:    false,
+					Error:      "Не удалось обновить статус заказа в базе данных",
+					LastPallet: true,
+				}, err
+			}
+			result.Error = ""
+			result.LastPallet = isLast
+			result.Success = true
+
+		} else {
+			// 3a.b. if false return error
+			result.Success = false
+			result.LastPallet = true
+			result.Error = "Внимание. Это последняя паллета, но у вас не собран малый подзаказ. Паллета не может быть завершена!"
+		}
+
+	} else {
+		// 2b. if false - put data in db, return success, last - false
+		err := createPalletRecord(db, orderId, palletNum, palletId)
+		if err != nil {
+			log.Println("error create pallet record: " + err.Error())
+			return BigPalletFinishResponseModel{
+				Success:    false,
+				Error:      "Не удалось создать запись паллеты в базе данных",
+				LastPallet: false,
+			}, err
+		}
+		err = createBoxesRecord(db, palletId, boxes, us)
+		if err != nil {
+			log.Println("error create boxes record: " + err.Error())
+			return BigPalletFinishResponseModel{
+				Success:    false,
+				Error:      "Не удалось создать запись коробов в базе данных",
+				LastPallet: false,
+			}, err
+		}
+		result.Error = ""
+		result.LastPallet = false
+		result.Success = true
+	}
+
 	return result, nil
 }
 
@@ -337,7 +583,6 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
-	log.Println(statement)
 
 	// get total amount of every good type
 	rows, err := db.Query(statement)
@@ -355,7 +600,7 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 			&amounts[18], &amounts[19], &amounts[20],
 			&amounts[21], &amounts[22], &amounts[23],
 			&amounts[24], &amounts[25])
-		log.Println(amounts)
+
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return []int{0}, err
@@ -421,6 +666,33 @@ func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 
 func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	var result []int
+	var amounts [26]int
+	statement := "select id from rosstat.boxes where pallet_id in " +
+		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ") order by id;"
+	rows, err := db.Query(statement)
+	if err != nil {
+		log.Println("error query select all boxes amount")
+		return nil, err
+	}
+	boxId := 0
+	for rows.Next() {
+		err = rows.Scan(&boxId)
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return nil, err
+		}
+		good := GetProductByBoxID(boxId)
+		amounts[good.Type-1] ++
+
+	}
+	for i := 0; i < 26; i++ {
+		result = append(result, amounts[i])
+	}
+	return result, nil
+}
+
+func GetCompletedBoxesIds(db *sql.DB, orderId int) ([]int, error) {
+	var result []int
 	statement := "select id from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
 
@@ -437,11 +709,6 @@ func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 			return nil, err
 		}
 		result = append(result, boxId)
-	}
-	if result == nil{
-		for i:= 0; i < 26; i++ {
-			result = append(result, 0)
-		}
 	}
 	return result, nil
 }
@@ -498,81 +765,6 @@ func getSmallBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
 	return boxes, nil
 }
 
-// Call it after button "combined boxes fully completed" pressed
-// update data in rosstat_orders - subtract amount of goods that were completed
-// we will not control every good itself, we believe that when operator clicked "all combined boxes completed - all pieces are packed"
-func PutSmallOrderToDB(orderId int, boxIds []int, userName string) (int, error) {
-	// defer trace("PutSmallOrderToDB", time.Now())
-
-	err := createSmallBoxesRecord(orderId, boxIds, userName)
-	if err != nil {
-		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
-		return 0, err
-	}
-
-	complectedGoods, err := GetAmountOfPiecesOfGood(orderId)
-	if err != nil {
-		log.Println("can't get amount of pieces in combined boxes: " + err.Error())
-		return 0, err
-	}
-
-	err = updateDataInRosstatOrdersWithPieces(complectedGoods)
-
-	if err != nil {
-		log.Println("can't update order with small suborder: " + err.Error())
-		return 0, err
-	}
-
-	return len(boxIds), nil
-}
-
-// TODO: update data in rosstat_orders - subtract amount of goods that were completed// Call it after button "Pallet is done" pressed and no error about small order completion, if this pallet is last
-func CreatePallet(orderId, palletNum int, boxes []int, userName string) (int, int, int, error) {
-	// id for pallet forms from order id and pallet number
-	palletId, err := strconv.Atoi(strconv.Itoa(orderId) + strconv.Itoa(palletNum)) // result like: if orderId 1264 + palletNum 7 will be 12647
-	if err != nil {
-		log.Println("Cannot convert pallet id to int: " + err.Error())
-		return 0, 0, 0, err
-	}
-	// TODO: put in db: insert into rosstat.pallets id, num, order_id values palletId, palletNum, orderId Error check!!!
-	err = createBoxesRecord(palletId, boxes, userName)
-	if err != nil {
-		log.Println("Cannot convert pallet id to int: " + err.Error())
-		return 0, 0, 0, err
-	}
-
-	return palletId, orderId, palletNum, nil
-}
-
-// Mostly this should be called when we start a new order. But can be called if order is not complete and closed by accidence or because of new shift
-func GetLastPalletNumBuOrderId(orderId int) (int, error) {
-	palletNum := 0
-	// TODO: select max(num) from rosstat.pallets where oder_id = orderId and put it into palletNum  Error check!!!
-	// if there is no pallets with this order_id - return 0, it means we have no pallets for this order yet
-	return palletNum, nil
-}
-
-// this list is for small part of order, for combined boxes(27 type) Called when small order clicked
-func GetOrderListForPieces(orderId int) ([]GoodOrdered, error) {
-	var result []GoodOrdered
-	for i := 0; i < 26; i++ {
-		tmp := GoodOrdered{}
-		tmp.Good = GetProductByBoxID(i + 1)
-		amount := 0
-		// TODO: select strconv.Itoa(i+1) from rosstat.rosstat_orders where id = orderId. Put result into amount Error check!!!
-		tmp.Amount = GetPiecesOfThisProduct(tmp.Good, amount) // here we get amount of pieces, not boxes of this product!
-		result = append(result, tmp)
-	}
-	return result, nil
-}
-
-// ??
-func GetOrderByNumber(orderNumber string) Order {
-	order := Order{}
-	// TODO: fill structure from db: select * from rosstat.rosstat_orders where num_order = orderNumber; for every good - call GetProductByID Error check!!!
-	return order
-}
-
 // get amount of whole boxes of particular good
 func GetWholeBoxesOfThisProduct(product Good, totalAmount int) int {
 	return totalAmount / product.AmountInBox
@@ -580,204 +772,181 @@ func GetWholeBoxesOfThisProduct(product Good, totalAmount int) int {
 
 // get amount of pieces of particular good for combined box
 func GetPiecesOfThisProduct(product Good, totalAmount int) int {
-	log.Println("total: " + strconv.Itoa(totalAmount) + ", Amount in a box: " + strconv.Itoa(product.AmountInBox))
+	// log.Println("total: " + strconv.Itoa(totalAmount) + ", Amount in a box: " + strconv.Itoa(product.AmountInBox))
 	return totalAmount % product.AmountInBox
-}
-
-// returns amount of boxed for each type of good got from ids array
-func GetAmountOfBoxesOfGoodToSubtractFromDB(boxIds []int) ([27]int, error) {
-	var result [27]int
-	for i := 0; i < len(boxIds); i++ {
-		goodType := GetProductByBoxID(boxIds[i]).Type
-		boxIds[goodType]++
-	}
-	return result, nil
-}
-
-// returns amount of pieces for each type of good got from ids array
-func GetAmountOfPiecesOfGood(orderId int) ([26]int, error) {
-	var result [26]int
-	statement := "select "
-	for i := 1; i < 27; i++ {
-		statement += strconv.Itoa(i) + ", "
-	}
-	statement = strings.TrimRight(statement, ",")
-	statement += " from rosstat.rosstat_orders where id = "
-	statement += strconv.Itoa(orderId)
-	// TODO: exec statement(notice if in cell null - it means 0), put to result
-	for i := 0; i < 26; i++ {
-		// we got total amount of every good here, but we need only pieces, so update result
-		result[i] = GetPiecesOfThisProduct(GetProductByBoxID(i+1), result[i])
-	}
-	return result, nil
 }
 
 func GetProductByBoxID(id int) Good {
 	result := Good{
 	}
 
-	if id > 200100001 && id < 200200000 {
-		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
+	if id >= 200100001 && id <= 200200000 {
+		result.Name = "1. Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
 		result.Type = 1
 
-	} else if id > 200200001 && id < 200300000 {
-		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
+	} else if id >= 200200001 && id <= 200300000 {
+		result.Name = "2. Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
 		result.Type = 2
 
-	} else if id > 200300001 && id < 200400000 {
-		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
+	} else if id >= 200300001 && id <= 200400000 {
+		result.Name = "3. Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
 		result.Type = 3
 
-	} else if id > 200400001 && id < 200500000 {
-		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
+	} else if id >= 200400001 && id <= 200500000 {
+		result.Name = "4. Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
 		result.Type = 4
 
-	} else if id > 200500001 && id < 200600000 {
-		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
+	} else if id >= 200500001 && id <= 200600000 {
+		result.Name = "5. Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
 		result.Type = 5
 
-	} else if id > 200600001 && id < 200700000 {
-		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
+	} else if id >= 200600001 && id <= 200700000 {
+		result.Name = "6. Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
 		result.Type = 6
 
-	} else if id > 200700001 && id < 200800000 {
-		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
+	} else if id >= 200700001 && id <= 200800000 {
+		result.Name = "7. Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
 		result.Type = 7
 
-	} else if id > 200800001 && id < 200900000 {
-		result.Name = "Форма № 9. Ярлык в портфель переписчика"
+	} else if id >= 200800001 && id <= 200900000 {
+		result.Name = "8. Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
 		result.Type = 8
 
-	} else if id > 200900001 && id < 201000000 {
-		result.Name = "Форма № 10. Карточка для респондентов"
+	} else if id >= 200900001 && id <= 201000000 {
+		result.Name = "9. Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
 		result.Type = 9
 
-	} else if id > 201000001 && id < 201100000 {
-		result.Name = "Форма Обложка. Обложка на переписные документы"
+	} else if id >= 201000001 && id <= 201100000 {
+		result.Name = "10. Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
 		result.Type = 10
 
-	} else if id > 201100001 && id < 201200000 {
-		result.Name = "Форма С. Список лиц"
+	} else if id >= 201100001 && id <= 201200000 {
+		result.Name = "11. Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
 		result.Type = 11
 
-	} else if id > 201200001 && id < 201300000 {
-		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
+	} else if id >= 201200001 && id <= 201300000 {
+		result.Name = "12. Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
 		result.Type = 12
 
-	} else if id > 201300001 && id < 201400000 {
-		result.Name = "Форма СПР. Справка о прохождении переписи"
+	} else if id >= 201300001 && id <= 201400000 {
+		result.Name = "13. Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
 		result.Type = 13
 
-	} else if id > 201400001 && id < 201500000 {
-		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
+	} else if id >= 201400001 && id <= 201500000 {
+		result.Name = "14. Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
 		result.Type = 14
 
-	} else if id > 201500001 && id < 201600000 {
-		result.Name = "Тесты для обучения переписного персонала"
+	} else if id >= 201500001 && id <= 201600000 {
+		result.Name = "15. Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
 		result.Type = 15
 
-	} else if id > 201600001 && id < 201700000 {
-		result.Name = "Указатели для переписных участков"
+	} else if id >= 201600001 && id <= 201700000 {
+		result.Name = "16. Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
 		result.Type = 16
 
-	} else if id > 201700001 && id < 201800000 {
-		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
+	} else if id >= 201700001 && id <= 201800000 {
+		result.Name = "17. Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
 		result.Type = 17
 
-	} else if id > 201800001 && id < 201900000 {
-		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
+	} else if id >= 201800001 && id <= 201900000 {
+		result.Name = "18. Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
 		result.Type = 18
 
-	} else if id > 201900001 && id < 202000000 {
-		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
+	} else if id >= 201900001 && id <= 202000000 {
+		result.Name = "19. Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 19
 
-	} else if id > 202000001 && id < 202100000 {
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
+	} else if id >= 202000001 && id <= 202100000 {
+		result.Name = "20. Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 20
 
-	} else if id > 202100001 && id < 202200000 {
-		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
+	} else if id >= 202100001 && id <= 202200000 {
+		result.Name = "21. Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
 		result.Type = 21
 
-	} else if id > 202200001 && id < 202300000 {
-		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
+	} else if id >= 202200001 && id <= 202300000 {
+		result.Name = "22. Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 22
 
-	} else if id > 202300001 && id < 202400000 {
-		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
+	} else if id >= 202300001 && id <= 202400000 {
+		result.Name = "23. Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
 		result.Type = 23
 
-	} else if id > 202400001 && id < 202500000 {
-		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
+	} else if id >= 202400001 && id <= 202500000 {
+		result.Name = "24. Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 24
 
-	} else if id > 202500001 && id < 202600000 {
-		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
+	} else if id >= 202500001 && id <= 202600000 {
+		result.Name = "25. Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 25
 
-	} else if id > 202600001 && id < 202700000 {
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
+	} else if id >= 202600001 && id <= 202700000 {
+		result.Name = "26. Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 26
 
-	} else if id > 202700001 && id < 202800000 {
-		result.Name = "Сборный короб"
+	} else if id >= 202700001 && id <= 202800000 {
+		result.Name = "27. Сборный короб "
 		result.Run = 0
 		result.AmountInBox = 0
 		result.Type = 27
 
+	} else{
+		result.Name = "Ошибка!"
+		result.Run = 0
+		result.AmountInBox = 0
+		result.Type = 0
 	}
 
 	return result
@@ -789,7 +958,7 @@ func GetProductByType(t int) Good {
 
 	switch t {
 	case 1:
-		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
+		result.Name = "1. Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
 		result.Type = 1
@@ -797,7 +966,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200200000
 		break
 	case 2:
-		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
+		result.Name = "2. Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
 		result.Type = 2
@@ -805,7 +974,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200300000
 		break
 	case 3:
-		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
+		result.Name = "3. Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
 		result.Type = 3
@@ -813,7 +982,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200400000
 		break
 	case 4:
-		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
+		result.Name = "4. Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
 		result.Type = 4
@@ -821,7 +990,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200500000
 		break
 	case 5:
-		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
+		result.Name = "5. Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
 		result.Type = 5
@@ -829,7 +998,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200600000
 		break
 	case 6:
-		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
+		result.Name = "6. Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
 		result.Type = 6
@@ -837,7 +1006,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200700000
 		break
 	case 7:
-		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
+		result.Name = "7. Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
 		result.Type = 7
@@ -845,7 +1014,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200800000
 		break
 	case 8:
-		result.Name = "Форма № 9. Ярлык в портфель переписчика"
+		result.Name = "8. Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
 		result.Type = 8
@@ -853,7 +1022,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200900000
 		break
 	case 9:
-		result.Name = "Форма № 10. Карточка для респондентов"
+		result.Name = "9. Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
 		result.Type = 9
@@ -861,7 +1030,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201000000
 		break
 	case 10:
-		result.Name = "Форма Обложка. Обложка на переписные документы"
+		result.Name = "10. Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
 		result.Type = 10
@@ -869,7 +1038,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201100000
 		break
 	case 11:
-		result.Name = "Форма С. Список лиц"
+		result.Name = "11. Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
 		result.Type = 11
@@ -877,7 +1046,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201200000
 		break
 	case 12:
-		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
+		result.Name = "12. Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
 		result.Type = 12
@@ -885,7 +1054,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201300000
 		break
 	case 13:
-		result.Name = "Форма СПР. Справка о прохождении переписи"
+		result.Name = "13. Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
 		result.Type = 13
@@ -893,7 +1062,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201400000
 		break
 	case 14:
-		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
+		result.Name = " 14. Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
 		result.Type = 14
@@ -901,7 +1070,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201500000
 		break
 	case 15:
-		result.Name = "Тесты для обучения переписного персонала"
+		result.Name = "15. Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
 		result.Type = 15
@@ -909,7 +1078,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201600000
 		break
 	case 16:
-		result.Name = "Указатели для переписных участков"
+		result.Name = "16. Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
 		result.Type = 16
@@ -917,7 +1086,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201700000
 		break
 	case 17:
-		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
+		result.Name = "17. Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
 		result.Type = 17
@@ -925,7 +1094,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201800000
 		break
 	case 18:
-		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
+		result.Name = "18. Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
 		result.Type = 18
@@ -933,7 +1102,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201900000
 		break
 	case 19:
-		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
+		result.Name = "19. Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 19
@@ -941,7 +1110,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202000000
 		break
 	case 20:
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
+		result.Name = "20. Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 20
@@ -949,7 +1118,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202100000
 		break
 	case 21:
-		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
+		result.Name = "21. Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
 		result.Type = 21
@@ -957,7 +1126,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202200000
 		break
 	case 22:
-		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
+		result.Name = "22. Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 22
@@ -965,7 +1134,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202300000
 		break
 	case 23:
-		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
+		result.Name = "23. Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
 		result.Type = 23
@@ -973,7 +1142,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202400000
 		break
 	case 24:
-		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
+		result.Name = "24. Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 24
@@ -981,7 +1150,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202500000
 		break
 	case 25:
-		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
+		result.Name = "25. Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 25
@@ -989,7 +1158,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202600000
 		break
 	case 26:
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
+		result.Name = "26. Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 26
@@ -997,12 +1166,18 @@ func GetProductByType(t int) Good {
 		result.LastID = 202700000
 		break
 	case 27:
-		result.Name = "Сборный короб"
+		result.Name = "27. Сборный короб"
 		result.Run = 0
 		result.AmountInBox = 0
 		result.Type = 27
 		result.FirstID = 202700001
 		result.LastID = 202800000
+		break
+	default:
+		result.Name = "Ошибка!"
+		result.Run = 0
+		result.AmountInBox = 0
+		result.Type = 0
 		break
 
 	}
@@ -1010,44 +1185,185 @@ func GetProductByType(t int) Good {
 	return result
 }
 
+func GetAllPalletsBarcodesAndNums(db *sql.DB, orderId int)([]PalletInfo, error){
+	var result []PalletInfo
+	statement1 := "select id,num from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + " order by id;"
+	rows1, err := db.Query(statement1)
+	if err != nil {
+		log.Println("error get all pallet ids for order: " + err.Error())
+		return nil, err
+	}
+	statement2 := "select count(id), pallet_id from rosstat.boxes where pallet_id in " +
+		"(select id from rosstat.pallets where order_id =" + strconv.Itoa(orderId) +
+		" ) group by rosstat.boxes.pallet_id order by rosstat.boxes.pallet_id;"
+	rows2, err := db.Query(statement2)
+	if err != nil {
+		log.Println("error get all boxes for order: " + err.Error())
+		return nil, err
+	}
+	for rows1.Next(){
+		tmpId := ""
+		tmpNum := 0
+		tmpBoxes := 0
+		err = rows1.Scan(&tmpId, &tmpNum)
+		if err != nil {
+			log.Println("error scan pallet id for order: " + err.Error())
+			return nil, err
+		}
+		bar, err := generateBarcodeWithControlNumForPalletId(tmpId)
+		if err != nil {
+			log.Println("error generate barcode for pallet id: " + err.Error())
+			return nil, err
+		}
+		result = append(result, PalletInfo{
+			barcode:  bar,
+			palletNum: tmpNum,
+			boxes: tmpBoxes,
+		})
+	}
+	ind := 0
+	for rows2.Next(){
+		tmpBoxes := 0
+		tmpPalletId := 0
+		rows2.Scan(&tmpBoxes, &tmpPalletId)
+		result[ind].boxes = tmpBoxes
+		ind ++
+	}
+	rows1.Close()
+	rows2.Close()
+	return result, nil
+}
+
 // put data in rosstat.boxes
-func createBoxesRecord(palletId int, boxes []int, userName string) error {
-	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, user_name
-	palletIdStr := strconv.Itoa(palletId)
+func createBoxesRecord(db *sql.DB, palletId string, boxes []string, us string) error {
+	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, us_name
 	for i := 0; i < len(boxes); i++ {
-		statement += "(" + strconv.Itoa(boxes[i]) + ", " + palletIdStr + ", " + userName + "),"
+		statement += "(" + boxes[i] + ", " + palletId + ", '" + us + "'),"
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += ";"
-	// TODO: put in db statement Error check!!!
+	_, err := db.Query(statement)
+	if err != nil {
+		log.Println("error execute query to insert boxes for order")
+		return err
+	}
 	return nil
 }
 
 // put data in rosstat.small_boxes
-func createSmallBoxesRecord(orderId int, boxIds []int, userName string) error {
+func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, us string) error {
+	log.Println(us + " in createSmallBoxesRecord")
 	statementInsert := "insert into rosstat.small_boxes values "
 	for i := 0; i < len(boxIds); i++ {
-		statementInsert += "(" + strconv.Itoa(boxIds[i]) + ", " + strconv.Itoa(orderId) + ", " + userName + "),"
+		statementInsert += "(" + boxIds[i] + ", " + strconv.Itoa(orderId) + ", '" + us + "'),"
 	}
 	statementInsert = strings.TrimRight(statementInsert, ",")
 	statementInsert += ";"
-	// TODO: put in db statementInsert Error check!!!
-	return nil
-}
-
-// subtract collected boxes from order
-func updateDataInRosstatOrdersWithBoxes() error {
-	return nil
-}
-
-// subtract collected pieces of goods from order
-func updateDataInRosstatOrdersWithPieces(complectedGoods [26]int) error {
-	statementUpdate := "update rosstat.rosstat_orders set "
-	for i := 1; i < 27; i++ {
-		statementUpdate += strconv.Itoa(i) + "=" + strconv.Itoa(i) + "- " + strconv.Itoa(complectedGoods[i-1]) + ", "
+	log.Println("st: " + statementInsert)
+	_, err := db.Query(statementInsert)
+	if err != nil {
+		log.Println("error execute query to insert small boxes for order")
+		return err
 	}
-	statementUpdate = strings.TrimRight(statementUpdate, ",")
-	statementUpdate += ";"
-	// TODO: run statement Error check!!!
 	return nil
+}
+
+// check if pallet last in order returns: is last, is small completed
+func isPalletLastInOrder(db *sql.DB, orderId int, barcodes []string) (bool, bool) {
+	isLast := false
+	isSmallCompleted := false
+	// 1. get total boxes for order
+	total, err := GetTotalBoxesAmount(db, orderId)
+	if err != nil {
+		log.Println("error get total amount of boxes for order")
+	}
+	tot := 0
+	for i := 0; i < len(total); i++ {
+		tot += total[i]
+	}
+	// 2. get completed boxes for order
+	completed, err := GetCompletedBoxesAmount(db, orderId)
+	if err != nil {
+		log.Println("error get amount of completed boxes for order")
+	}
+	comp := 0
+	for i := 0; i < len(completed); i++ {
+		comp += completed[i]
+	}
+	// 3. get small boxes for order
+	small, err := getSmallBoxesAmountForOrder(db, orderId)
+	if err != nil {
+		log.Println("error get amount of small boxes for order")
+	}
+	// 4. check if ( (total + small) - completed) > len(barcodes)
+	if ((tot + small) - comp) <= len(barcodes) {
+		isLast = true
+	}
+	// 5. check if small boxes exists
+	if small > 0 {
+		isSmallCompleted = true
+	}
+
+	return isLast, isSmallCompleted
+}
+
+// put pallet data to db
+func createPalletRecord(db *sql.DB, orderId, palletNum int, palletId string) error {
+	statement := "insert into rosstat.pallets values(" +
+		palletId + ", " +
+		strconv.Itoa(palletNum) + ", " + strconv.Itoa(orderId) + ");"
+	_, err := db.Query(statement)
+	if err != nil {
+		log.Println("error insert into pallets: " + err.Error())
+		return err
+	}
+	return nil
+}
+
+func completeTheOrder(db *sql.DB, orderId int) error {
+
+	statement := "update rosstat.rosstat_orders set completed = true where id = " + strconv.Itoa(orderId) + ";"
+	_, err := db.Query(statement)
+	if err != nil {
+		log.Println("error update completion of order: " + err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func ShipTheOrder(db *sql.DB, orderId int) error {
+
+	statement := "update rosstat.rosstat_orders set shipped = true where id = " + strconv.Itoa(orderId) + ";"
+	_, err := db.Query(statement)
+	if err != nil {
+		log.Println("error update completion of order: " + err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func generateBarcodeWithControlNumForPalletId(palletId string) (string, error){
+	palletId = fmt.Sprintf("%012s", palletId)
+	odd := 0
+	even := 0
+	for i:= 0; i < len(palletId); i++{
+		n, err := strconv.Atoi(string(palletId[i]))
+		if err != nil {
+			log.Println("error convert string to int: " + err.Error())
+			return "", err
+		}
+		if i == 0 || i %2 != 0{
+			even += n
+		}else{
+			odd += n
+		}
+	}
+	even *= 3
+	res := even + odd
+	res = res % 10
+	conNum := 10 - res
+
+	return palletId + strconv.Itoa(conNum), nil
 }
