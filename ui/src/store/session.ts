@@ -127,7 +127,7 @@ export class Session {
             if (this.curPage === "shipment") {
                 this.fetchShipmentReady().catch(console.error);
             }
-        }, 1000) as any;
+        }, 20000) as any;
     }
 
     async login(login: string, password: string): Promise<boolean> {
