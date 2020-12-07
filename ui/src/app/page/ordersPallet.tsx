@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React, {useCallback, useContext, useEffect} from "react";
 import {Observer} from "mobx-react";
 import {Layout} from "../component/layout";
 import {Link, useHistory, useParams} from "react-router-dom";
@@ -6,11 +6,11 @@ import {useSession} from "../app";
 import {BigOrdersModel, BigPalletModel, OrdersModel} from "../../api/orders";
 import {Button, Dimmer, Divider, Form, Grid, Header, Input, Loader, Message, Table} from "semantic-ui-react";
 import {Session} from "../../store/session";
+import {runInAction} from "mobx";
 
 function renderTypes(type: { type: BigOrdersModel, barcode: string | null }, i: number) {
     return <Table.Row key={i} positive={(type.barcode ?? "").length > 0}>
         <Table.Cell>{type.type.form_name}</Table.Cell>
-        <Table.Cell width={3}>{type.barcode}</Table.Cell>
     </Table.Row>
 }
 
@@ -24,7 +24,12 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
         const el = ev.currentTarget as HTMLInputElement;
         if (ev.key === "Enter" && el.value.trim() !== "") {
             const barcode = el.value.trim();
-            session.lastError = "";
+
+            runInAction(() => {
+                session.lastError = "";
+                session.lastSuccess = "";
+            });
+
             if (session.bigPalletOrderMatches[idp].some(v => v.barcode === barcode)) {
                 el.value = "";
                 session.lastError = "Такой штрих-код уже добавлен";
@@ -34,7 +39,11 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
             try {
                 const type = await session.requestPalletType(barcode);
                 if (type.success) {
-                    session.matchPalletBarcode(type.type, barcode);
+                    if (session.matchPalletBarcode(type.type, barcode)) {
+                        session.lastSuccess = `Отсканирован короб ${type.type} ${barcode}`;
+                    } else {
+                        session.lastError = "Внимание! Отсканирован ошибочный короб!";
+                    }
                 } else {
                     session.lastError = type.error ?? "";
                 }
@@ -75,12 +84,15 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
             <Grid.Row>
                 <Grid.Column>
                     <Header sub>Паллета №:</Header> {pallet.pallet_num}<br/><br/>
-                    <Form error={session.lastError.length > 0}>
+                    <Form error={session.lastError.length > 0} success={session.lastSuccess.length > 0}>
                         <Form.Field>
                             <label>Сканируйте штрих-код коробки:</label>
-                            <Input placeholder='202700030' onKeyPress={addBox} type="number" min={1} />
+                            <Input placeholder='202700030' onKeyPress={addBox} type="number" min={1} autoFocus/>
                             <Message error>
                                 {session.lastError}
+                            </Message>
+                            <Message success>
+                                {session.lastSuccess}
                             </Message>
                         </Form.Field>
                     </Form>
@@ -93,17 +105,13 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
         <Table celled singleLine collapsing>
             <Table.Body>
                 {session.bigPalletOrderMatches[idp]
-                    .slice()
-                    .sort((a, b) => (a.barcode?.length ?? 0) > 0 && (b.barcode?.length ?? 0) === 0 ? 1 : 0)
+                    .filter(v => v.barcode == null)
                     .map(renderTypes)}
             </Table.Body>
             <Table.Footer>
                 <Table.Row>
                     <Table.HeaderCell>
-                        Итого:
-                    </Table.HeaderCell>
-                    <Table.HeaderCell>
-                        {session.bigPalletOrderMatches[idp].filter(f => (f.barcode?.length ?? 0) > 0).length}
+                        Итого: {session.bigPalletOrderMatches[idp].filter(f => (f.barcode?.length ?? 0) > 0).length}
                     </Table.HeaderCell>
                 </Table.Row>
             </Table.Footer>
@@ -118,23 +126,34 @@ export function OrdersPalletPage() {
     const session = useSession();
     const history = useHistory();
 
+    const warnOnUnload = useCallback((ev: BeforeUnloadEvent) => {
+        ev.preventDefault();
+        ev.returnValue = "";
+        return "";
+    }, []);
+
     useEffect(() => {
-        session.curPage = "orders-pallet";
-        session.breadcrumbs = [
-            { key: 'orders', content: 'Комплектование', as: Link, to: "/orders" },
-            { key: 'big', content: `Короба №${id}`, as: Link, to: `/orders/big/${id}` },
-            { key: 'pallet', content: `Паллета`, active: true },
-        ];
-        session.lastError = "";
-        session.currentOrderId = parseInt(id);
-        session.fetchOrdersToBuild().catch(console.error);
-        session.fetchBigPallet().then(() => {
-            session.clearPalletBarcode();
-        }).catch(console.error);
+        runInAction(() => {
+            session.curPage = "orders-pallet";
+            session.breadcrumbs = [
+                {key: 'orders', content: 'Комплектование', as: Link, to: "/orders"},
+                {key: 'big', content: `Короба №${id}`, as: Link, to: `/orders/big/${id}`},
+                {key: 'pallet', content: `Паллета`, active: true},
+            ];
+            session.lastError = "";
+            session.currentOrderId = parseInt(id);
+            session.fetchOrdersToBuild().catch(console.error);
+            session.fetchBigPallet().then(() => {
+                session.clearPalletBarcode();
+            }).catch(console.error);
+        });
+
+        window.addEventListener("beforeunload", warnOnUnload);
         return () => {
+            window.removeEventListener("beforeunload", warnOnUnload);
             session.curPage = "none";
         }
-    }, [session, id])
+    }, [session, id, warnOnUnload])
 
     return <Observer>{() =>
         <Layout>

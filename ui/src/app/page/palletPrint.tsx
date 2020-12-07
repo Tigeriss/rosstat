@@ -5,7 +5,6 @@ import {PrintPalletModel, PrintPalletRegisterModel} from "../../api/orders";
 import {Barcode} from "../component/barcode";
 
 const stylesLabel: React.CSSProperties = {
-    breakAfter: "page",
     display: "inline-block",
     margin: "20px",
     padding: "30px 70px",
@@ -39,7 +38,7 @@ export function PalletPrint() {
     }, [session, id, num]);
 
     return <div>
-        <div style={stylesLabel}>
+        <div style={stylesLabel} className="print-page">
             <h1 style={hStyles}>{print.order_caption}</h1>
             <h2 style={hStyles}>{print.address}</h2>
             <h2 style={hStyles}>{print.provider}</h2>
@@ -47,7 +46,7 @@ export function PalletPrint() {
             <Barcode value={print.barcode ?? ""}/>
             <h2 style={hStyles}>Паллет №{num}</h2>
         </div>
-        <div style={{padding: "30px"}}>
+        <div style={{padding: "30px"}}  className="print-page">
             <h1 style={{textAlign: "center"}}>Реестр паллеты №{num}</h1>
             <h1>Задание {print.order_caption}</h1>
             <table className="print">

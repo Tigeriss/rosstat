@@ -6,6 +6,7 @@ import {Link, useHistory, useParams} from "react-router-dom";
 import {Dimmer, Form, Grid, Header, Icon, Input, Loader, Message, Table} from "semantic-ui-react";
 import {ShipmentModel, ShipmentPalletModel} from "../../api/shipment";
 import {Session} from "../../store/session";
+import {runInAction} from "mobx";
 
 function renderLabels(session: Session, pallet: ShipmentPalletModel) {
     return <Table.Row key={pallet.barcode} positive={session.sentPallets[pallet.barcode]}>
@@ -86,7 +87,7 @@ function renderShipment(order: ShipmentModel | null, pallet: ShipmentPalletModel
                 <Form error={session.lastError.length > 0}>
                     <Form.Field>
                         <label>Соберите коробку и отсканируйте штрих-код:</label>
-                        <Input placeholder='202700030' onKeyPress={addLabel}/>
+                        <Input placeholder='202700030' onKeyPress={addLabel} autoFocus/>
                         <Message error>
                             {session.lastError}
                         </Message>
@@ -142,16 +143,19 @@ export function ShipmentPalletPage() {
     const history = useHistory();
 
     useEffect(() => {
-        session.curPage = "shipment-pallet";
-        session.breadcrumbs = [
-            { key: 'shipment', content: 'Комплектование', as: Link, to: "/shipment" },
-            { key: 'big', content: `Заказ №${id}`, active: true },
-        ];
-        session.lastError = "";
-        session.sentPallets = {};
-        session.currentShipmentId = parseInt(id);
-        session.fetchShipmentReady().catch(console.error);
-        session.fetchShipmentPallet().catch(console.error);
+        runInAction(() => {
+            session.curPage = "shipment-pallet";
+            session.breadcrumbs = [
+                {key: 'shipment', content: 'Комплектование', as: Link, to: "/shipment"},
+                {key: 'big', content: `Заказ №${id}`, active: true},
+            ];
+            session.lastError = "";
+            session.sentPallets = {};
+            session.currentShipmentId = parseInt(id);
+            session.fetchShipmentReady().catch(console.error);
+            session.fetchShipmentPallet().catch(console.error);
+        });
+
         return () => {
             session.curPage = "none";
         }
