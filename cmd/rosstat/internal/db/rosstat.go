@@ -781,163 +781,163 @@ func GetProductByBoxID(id int) Good {
 	}
 
 	if id >= 200100001 && id <= 200200000 {
-		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
+		result.Name = "1. Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
 		result.Type = 1
 
 	} else if id >= 200200001 && id <= 200300000 {
-		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
+		result.Name = "2. Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
 		result.Type = 2
 
 	} else if id >= 200300001 && id <= 200400000 {
-		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
+		result.Name = "3. Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
 		result.Type = 3
 
 	} else if id >= 200400001 && id <= 200500000 {
-		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
+		result.Name = "4. Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
 		result.Type = 4
 
 	} else if id >= 200500001 && id <= 200600000 {
-		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
+		result.Name = "5. Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
 		result.Type = 5
 
 	} else if id >= 200600001 && id <= 200700000 {
-		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
+		result.Name = "6. Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
 		result.Type = 6
 
 	} else if id >= 200700001 && id <= 200800000 {
-		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
+		result.Name = "7. Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
 		result.Type = 7
 
 	} else if id >= 200800001 && id <= 200900000 {
-		result.Name = "Форма № 9. Ярлык в портфель переписчика"
+		result.Name = "8. Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
 		result.Type = 8
 
 	} else if id >= 200900001 && id <= 201000000 {
-		result.Name = "Форма № 10. Карточка для респондентов"
+		result.Name = "9. Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
 		result.Type = 9
 
 	} else if id >= 201000001 && id <= 201100000 {
-		result.Name = "Форма Обложка. Обложка на переписные документы"
+		result.Name = "10. Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
 		result.Type = 10
 
 	} else if id >= 201100001 && id <= 201200000 {
-		result.Name = "Форма С. Список лиц"
+		result.Name = "11. Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
 		result.Type = 11
 
 	} else if id >= 201200001 && id <= 201300000 {
-		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
+		result.Name = "12. Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
 		result.Type = 12
 
 	} else if id >= 201300001 && id <= 201400000 {
-		result.Name = "Форма СПР. Справка о прохождении переписи"
+		result.Name = "13. Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
 		result.Type = 13
 
 	} else if id >= 201400001 && id <= 201500000 {
-		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
+		result.Name = "14. Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
 		result.Type = 14
 
 	} else if id >= 201500001 && id <= 201600000 {
-		result.Name = "Тесты для обучения переписного персонала"
+		result.Name = "15. Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
 		result.Type = 15
 
 	} else if id >= 201600001 && id <= 201700000 {
-		result.Name = "Указатели для переписных участков"
+		result.Name = "16. Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
 		result.Type = 16
 
 	} else if id >= 201700001 && id <= 201800000 {
-		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
+		result.Name = "17. Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
 		result.Type = 17
 
 	} else if id >= 201800001 && id <= 201900000 {
-		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
+		result.Name = "18. Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
 		result.Type = 18
 
 	} else if id >= 201900001 && id <= 202000000 {
-		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
+		result.Name = "19. Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 19
 
 	} else if id >= 202000001 && id <= 202100000 {
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
+		result.Name = "20. Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 20
 
 	} else if id >= 202100001 && id <= 202200000 {
-		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
+		result.Name = "21. Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
 		result.Type = 21
 
 	} else if id >= 202200001 && id <= 202300000 {
-		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
+		result.Name = "22. Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 22
 
 	} else if id >= 202300001 && id <= 202400000 {
-		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
+		result.Name = "23. Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
 		result.Type = 23
 
 	} else if id >= 202400001 && id <= 202500000 {
-		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
+		result.Name = "24. Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 24
 
 	} else if id >= 202500001 && id <= 202600000 {
-		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
+		result.Name = "25. Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 25
 
 	} else if id >= 202600001 && id <= 202700000 {
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
+		result.Name = "26. Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 26
 
 	} else if id >= 202700001 && id <= 202800000 {
-		result.Name = "Сборный короб "
+		result.Name = "27. Сборный короб "
 		result.Run = 0
 		result.AmountInBox = 0
 		result.Type = 27
@@ -958,7 +958,7 @@ func GetProductByType(t int) Good {
 
 	switch t {
 	case 1:
-		result.Name = "Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
+		result.Name = "1. Форма № 1. Записная книжка переписчика (является приложением к Инструкции)"
 		result.Run = 476596
 		result.AmountInBox = 20
 		result.Type = 1
@@ -966,7 +966,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200200000
 		break
 	case 2:
-		result.Name = "Форма № 2. Записная книжка контролера полевого уровня"
+		result.Name = "2. Форма № 2. Записная книжка контролера полевого уровня"
 		result.Run = 65357
 		result.AmountInBox = 50
 		result.Type = 2
@@ -974,7 +974,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200300000
 		break
 	case 3:
-		result.Name = "Форма № 3. Записная книжка уполномоченного по вопросам переписи"
+		result.Name = "3. Форма № 3. Записная книжка уполномоченного по вопросам переписи"
 		result.Run = 6023
 		result.AmountInBox = 50
 		result.Type = 3
@@ -982,7 +982,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200400000
 		break
 	case 4:
-		result.Name = "Форма № 4. Сводная ведомость по переписному участку"
+		result.Name = "4. Форма № 4. Сводная ведомость по переписному участку"
 		result.Run = 57930
 		result.AmountInBox = 1000
 		result.Type = 4
@@ -990,7 +990,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200500000
 		break
 	case 5:
-		result.Name = "Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
+		result.Name = "5. Форма № 5. Сводная ведомость по городскому округу, муниципальному району/ округу"
 		result.Run = 10459
 		result.AmountInBox = 1000
 		result.Type = 5
@@ -998,7 +998,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200600000
 		break
 	case 6:
-		result.Name = "Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
+		result.Name = "6. Форма № 6. Сводка итогов переписи населения по городскому округу, муниципальному району/округу"
 		result.Run = 61459
 		result.AmountInBox = 500
 		result.Type = 6
@@ -1006,7 +1006,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200700000
 		break
 	case 7:
-		result.Name = "Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
+		result.Name = "7. Форма № 7. Информационные листовки (к лицам, которых трудно застать дома)"
 		result.Run = 28419540
 		result.AmountInBox = 2000
 		result.Type = 7
@@ -1014,7 +1014,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200800000
 		break
 	case 8:
-		result.Name = "Форма № 9. Ярлык в портфель переписчика"
+		result.Name = "8. Форма № 9. Ярлык в портфель переписчика"
 		result.Run = 18812
 		result.AmountInBox = 8000
 		result.Type = 8
@@ -1022,7 +1022,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 200900000
 		break
 	case 9:
-		result.Name = "Форма № 10. Карточка для респондентов"
+		result.Name = "9. Форма № 10. Карточка для респондентов"
 		result.Run = 392150
 		result.AmountInBox = 2000
 		result.Type = 9
@@ -1030,7 +1030,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201000000
 		break
 	case 10:
-		result.Name = "Форма Обложка. Обложка на переписные документы"
+		result.Name = "10. Форма Обложка. Обложка на переписные документы"
 		result.Run = 2287448
 		result.AmountInBox = 500
 		result.Type = 10
@@ -1038,7 +1038,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201100000
 		break
 	case 11:
-		result.Name = "Форма С. Список лиц"
+		result.Name = "11. Форма С. Список лиц"
 		result.Run = 2287448
 		result.AmountInBox = 1000
 		result.Type = 11
@@ -1046,7 +1046,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201200000
 		break
 	case 12:
-		result.Name = "Форма КС. Список лиц для контроля за заполнением переписных листов"
+		result.Name = "12. Форма КС. Список лиц для контроля за заполнением переписных листов"
 		result.Run = 790907
 		result.AmountInBox = 2000
 		result.Type = 12
@@ -1054,7 +1054,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201300000
 		break
 	case 13:
-		result.Name = "Форма СПР. Справка о прохождении переписи"
+		result.Name = "13. Форма СПР. Справка о прохождении переписи"
 		result.Run = 10136033
 		result.AmountInBox = 8000
 		result.Type = 13
@@ -1062,7 +1062,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201400000
 		break
 	case 14:
-		result.Name = "Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
+		result.Name = " 14. Инструкция о порядке подготовки материалов Всероссийской переписи населения 2020 года к обработке"
 		result.Run = 1652
 		result.AmountInBox = 40
 		result.Type = 14
@@ -1070,7 +1070,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201500000
 		break
 	case 15:
-		result.Name = "Тесты для обучения переписного персонала"
+		result.Name = "15. Тесты для обучения переписного персонала"
 		result.Run = 495982
 		result.AmountInBox = 100
 		result.Type = 15
@@ -1078,7 +1078,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201600000
 		break
 	case 16:
-		result.Name = "Указатели для переписных участков"
+		result.Name = "16. Указатели для переписных участков"
 		result.Run = 32689
 		result.AmountInBox = 500
 		result.Type = 16
@@ -1086,7 +1086,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201700000
 		break
 	case 17:
-		result.Name = "Форма Л. Переписной лист (обучение, чистые формы)"
+		result.Name = "17. Форма Л. Переписной лист (обучение, чистые формы)"
 		result.Run = 2082395
 		result.AmountInBox = 1000
 		result.Type = 17
@@ -1094,7 +1094,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201800000
 		break
 	case 18:
-		result.Name = "Форма П. Переписной лист (обучение, чистые формы)"
+		result.Name = "18. Форма П. Переписной лист (обучение, чистые формы)"
 		result.Run = 832958
 		result.AmountInBox = 1000
 		result.Type = 18
@@ -1102,7 +1102,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 201900000
 		break
 	case 19:
-		result.Name = "Форма В. Переписной лист (обучение, чистые формы)"
+		result.Name = "19. Форма В. Переписной лист (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 19
@@ -1110,7 +1110,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202000000
 		break
 	case 20:
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, чистые формы)"
+		result.Name = "20. Форма Н. Сопроводительный бланк (обучение, чистые формы)"
 		result.Run = 416479
 		result.AmountInBox = 1000
 		result.Type = 20
@@ -1118,7 +1118,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202100000
 		break
 	case 21:
-		result.Name = "Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
+		result.Name = "21. Форма Обложка. Обложка на переписные документы (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 500
 		result.Type = 21
@@ -1126,7 +1126,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202200000
 		break
 	case 22:
-		result.Name = "Форма С. Список лиц (обучение, заполненные формы)"
+		result.Name = "22. Форма С. Список лиц (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 22
@@ -1134,7 +1134,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202300000
 		break
 	case 23:
-		result.Name = "Форма Л. Переписной лист (обучение, заполненные формы)"
+		result.Name = "23. Форма Л. Переписной лист (обучение, заполненные формы)"
 		result.Run = 8260
 		result.AmountInBox = 1000
 		result.Type = 23
@@ -1142,7 +1142,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202400000
 		break
 	case 24:
-		result.Name = "Форма П. Переписной лист (обучение, заполненные формы)"
+		result.Name = "24. Форма П. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 24
@@ -1150,7 +1150,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202500000
 		break
 	case 25:
-		result.Name = "Форма В. Переписной лист (обучение, заполненные формы)"
+		result.Name = "25. Форма В. Переписной лист (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 25
@@ -1158,7 +1158,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202600000
 		break
 	case 26:
-		result.Name = "Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
+		result.Name = "26. Форма Н. Сопроводительный бланк (обучение, заполненные формы)"
 		result.Run = 1652
 		result.AmountInBox = 1000
 		result.Type = 26
@@ -1166,7 +1166,7 @@ func GetProductByType(t int) Good {
 		result.LastID = 202700000
 		break
 	case 27:
-		result.Name = "Сборный короб"
+		result.Name = "27. Сборный короб"
 		result.Run = 0
 		result.AmountInBox = 0
 		result.Type = 27

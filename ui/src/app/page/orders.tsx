@@ -34,7 +34,7 @@ function renderRow(history: ReturnType<typeof useHistory>, session: Session, ord
         let n = 0;
         for (const sub of order.sub_orders) {
             rows.push(
-                <Table.Row disabled={sub.amount_boxes > 0}
+                <Table.Row disabled={sub.is_small && sub.amount_boxes > 0}
                     key={`${order.id}-${n}`} onClick={() => next(sub)}>
                     <Table.Cell/>
                     <Table.Cell>{sub.order_caption}</Table.Cell>
