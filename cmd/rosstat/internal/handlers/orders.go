@@ -21,7 +21,12 @@ type ReadyToBuild struct {
 
 func GetToBuildOrders(c echo.Context) error {
 	ctx := c.(*RosContext)
-	result, err := db.GetAllOrdersForCompletion(ctx.DB())
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. 26: " + err.Error())
+		return err
+	}
+	result, err := db.GetAllOrdersForCompletion(tx)
 	if err != nil {
 		log.Println("error get all orders for completion: " + err.Error())
 		return err
@@ -40,7 +45,12 @@ func GetBigToBuildOrders(c echo.Context) error {
 	}
 
 	// get the data by orderID
-	result, err := db.GetOrderListForBigSuborder(ctx.DB(), orderID)
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. 50: " + err.Error())
+		return err
+	}
+	result, err := db.GetOrderListForBigSuborder(tx, orderID)
 	if err != nil {
 		log.Println("error GetOrderListForBigSuborder: " + err.Error())
 		return err
@@ -83,7 +93,18 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 	// log.Println(req.Boxes)
 	us := ctx.User().Login
 
-	boxesAmount, err := db.PutSmallOrderToDB(ctx.DB(), orderID, req.Boxes, us)
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. 86: " + err.Error())
+		return err
+	}
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			log.Println("Emergency! Error in insert state in db!")
+		}
+	}()
+
+	boxesAmount, err := db.PutSmallOrderToDB(tx, orderID, req.Boxes, us)
 	if err != nil{
 		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
 		return err
@@ -102,7 +123,12 @@ func GetBigPalletOrders(c echo.Context) error {
 	}
 
 	// get the data by orderID
-	result, err := db.GetOrderListForPallets(ctx.DB(), orderID)
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. 128: " + err.Error())
+		return err
+	}
+	result, err := db.GetOrderListForPallets(tx, orderID)
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -185,10 +211,13 @@ func FinishBigPalletOrders(c echo.Context) error {
 		return err
 	}
 
-	log.Println(orderID)
-	log.Println(req)
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. 216: " + err.Error())
+		return err
+	}
 
-	result, err := db.CreatePallet(ctx.DB(), orderID, req.PalletNum, req.Barcodes, ctx.User().Login)
+	result, err := db.CreatePallet(tx, orderID, req.PalletNum, req.Barcodes, ctx.User().Login)
 
 	if err != nil {
 		log.Println("error create pallet: " + err.Error())

@@ -19,13 +19,13 @@ func trace(name string, started time.Time) {
 }
 
 // for /orders
-func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
+func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 	defer trace("GetAllOrdersForCompletion", time.Now())
 
 	var result []OrdersModel
 
 	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = false order by id;"
-	rows, err := db.Query(statementGetOrders)
+	rows, err := tx.Query(statementGetOrders)
 	if err != nil {
 		log.Println("error query statementGetOrders - select all orders")
 		return nil, err
@@ -40,17 +40,17 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 			return nil, err
 		}
 
-		boxes, err := getCompletedBoxesAmountForOrder(db, order.Id)
+		boxes, err := getCompletedBoxesAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of box for order: " + err.Error())
 		}
 
-		pallets, err := getPalletsAmountForOrder(db, order.Id)
+		pallets, err := getPalletsAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of pallets for order: " + err.Error())
 		}
 
-		smallBoxes, err := getSmallBoxesAmountForOrder(db, order.Id)
+		smallBoxes, err := getSmallBoxesAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of combined boxes for order: " + err.Error())
 		}
@@ -91,13 +91,13 @@ func GetAllOrdersForCompletion(db *sql.DB) ([]OrdersModel, error) {
 }
 
 // for /shipment
-func GetAllOrdersForShipment(db *sql.DB) ([]OrdersModel, error) {
+func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 	defer trace("GetAllOrdersForShipment", time.Now())
 
 	var result []OrdersModel
 
 	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = true and shipped = false  order by id;"
-	rows, err := db.Query(statementGetOrders)
+	rows, err := tx.Query(statementGetOrders)
 	if err != nil {
 		log.Println("error query statementGetOrders - select all orders")
 		return nil, err
@@ -112,17 +112,17 @@ func GetAllOrdersForShipment(db *sql.DB) ([]OrdersModel, error) {
 			return nil, err
 		}
 
-		boxes, err := getCompletedBoxesAmountForOrder(db, order.Id)
+		boxes, err := getCompletedBoxesAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of box for order: " + err.Error())
 		}
 
-		pallets, err := getPalletsAmountForOrder(db, order.Id)
+		pallets, err := getPalletsAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of pallets for order: " + err.Error())
 		}
 
-		smallBoxes, err := getSmallBoxesAmountForOrder(db, order.Id)
+		smallBoxes, err := getSmallBoxesAmountForOrder(tx, order.Id)
 		if err != nil {
 			log.Println("error get amount of combined boxes for order: " + err.Error())
 		}
@@ -182,11 +182,11 @@ func GetShipmentPalletModel(db *sql.DB, orderId int)([]ShipmentPalletModel, erro
 }
 
 // for /orders/big
-func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, error) {
+func GetOrderListForBigSuborder(tx *sql.Tx, orderId int) ([]BigOrdersModel, error) {
 	var result []BigOrdersModel
 	var amounts [27]int
 
-	total, err := GetTotalBoxesAmount(db, orderId)
+	total, err := GetTotalBoxesAmount(tx, orderId)
 	if err != nil {
 		log.Println("error get boxes amount for order: " + err.Error())
 		return nil, err
@@ -197,7 +197,7 @@ func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, erro
 
 	// get amount of combined boxes to complete
 	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error get amount of goods for order: " + err.Error())
 		return nil, err
@@ -216,7 +216,7 @@ func GetOrderListForBigSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, erro
 	}
 
 	var allCompletedBoxes [27]int
-	allCompletedBoxIds, err := GetCompletedBoxesIds(db, orderId)
+	allCompletedBoxIds, err := GetCompletedBoxesIds(tx, orderId)
 	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
@@ -311,7 +311,7 @@ func GetOrderListForSmallSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, er
 }
 
 // for /orders/pallet
-func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
+func GetOrderListForPallets(tx *sql.Tx, orderId int) (BigPalletModel, error) {
 	var result BigPalletModel
 	var allPalletsNums []int
 	palNum := 0
@@ -319,7 +319,7 @@ func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 	statementGetNum := "select num from rosstat.pallets where order_id = " +
 		strconv.Itoa(orderId) + " order by num desc;"
 
-	rows, err := db.Query(statementGetNum)
+	rows, err := tx.Query(statementGetNum)
 	if err != nil {
 		log.Println("error query statementGetNum - select last pallet num")
 		return BigPalletModel{}, err
@@ -340,7 +340,7 @@ func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 	}
 
 	result.PalletNum = palNum + 1
-	allBoxes, err := GetBoxesToCompleteForOrder(db, orderId)
+	allBoxes, err := GetBoxesToCompleteForOrder(tx, orderId)
 	for i := 0; i < len(allBoxes); i++ {
 		good := GetProductByType(i + 1)
 		for s := 0; s < allBoxes[i]; s++ {
@@ -356,9 +356,9 @@ func GetOrderListForPallets(db *sql.DB, orderId int) (BigPalletModel, error) {
 }
 
 // Call it after button "combined boxes fully completed" pressed
-func PutSmallOrderToDB(db *sql.DB, orderId int, boxIds []string, us string) (int, error) {
-	log.Println(us + " in PutSmallOrderToDB")
-	err := createSmallBoxesRecord(db, orderId, boxIds, us)
+func PutSmallOrderToDB(tx *sql.Tx, orderId int, boxIds []string, us string) (int, error) {
+
+	err := createSmallBoxesRecord(tx, orderId, boxIds, us)
 	if err != nil {
 		log.Println("Error create record in rosstat.small_boxes: " + err.Error())
 		return 0, err
@@ -467,17 +467,17 @@ func GetBoxIdsForPallet(db *sql.DB, palletId string) ([]int, error){
 	return result, nil
 }
 
-func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string) (BigPalletFinishResponseModel, error) {
+func CreatePallet(tx *sql.Tx, orderId, palletNum int, boxes []string, us string) (BigPalletFinishResponseModel, error) {
 
 	var result BigPalletFinishResponseModel
 	palletId := strconv.Itoa(orderId) + strconv.Itoa(palletNum)
-	isLast, isSmallCompleted := isPalletLastInOrder(db, orderId, boxes)
+	isLast, isSmallCompleted := isPalletLastInOrder(tx, orderId, boxes)
 	// 1. check if it's last pallet
 	if isLast {
 		// 2a. if true, check if small suborder in barcodes
 		if isSmallCompleted {
 			// 3a.a. if true - put data in db, update order as completed, return success, last - true
-			err := createPalletRecord(db, orderId, palletNum, palletId)
+			err := createPalletRecord(tx, orderId, palletNum, palletId)
 			if err != nil {
 				log.Println("error create pallet record: " + err.Error())
 				return BigPalletFinishResponseModel{
@@ -486,7 +486,7 @@ func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string)
 					LastPallet: true,
 				}, err
 			}
-			err = createBoxesRecord(db, palletId, boxes, us)
+			err = createBoxesRecord(tx, palletId, boxes, us)
 			if err != nil {
 				log.Println("error create boxes record: " + err.Error())
 				return BigPalletFinishResponseModel{
@@ -495,7 +495,7 @@ func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string)
 					LastPallet: true,
 				}, err
 			}
-			err = completeTheOrder(db, orderId)
+			err = completeTheOrder(tx, orderId)
 			if err != nil {
 				log.Println("error update order to completed: " + err.Error())
 				return BigPalletFinishResponseModel{
@@ -517,7 +517,7 @@ func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string)
 
 	} else {
 		// 2b. if false - put data in db, return success, last - false
-		err := createPalletRecord(db, orderId, palletNum, palletId)
+		err := createPalletRecord(tx, orderId, palletNum, palletId)
 		if err != nil {
 			log.Println("error create pallet record: " + err.Error())
 			return BigPalletFinishResponseModel{
@@ -526,7 +526,7 @@ func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string)
 				LastPallet: false,
 			}, err
 		}
-		err = createBoxesRecord(db, palletId, boxes, us)
+		err = createBoxesRecord(tx, palletId, boxes, us)
 		if err != nil {
 			log.Println("error create boxes record: " + err.Error())
 			return BigPalletFinishResponseModel{
@@ -543,23 +543,23 @@ func CreatePallet(db *sql.DB, orderId, palletNum int, boxes []string, us string)
 	return result, nil
 }
 
-func GetBoxesToCompleteForOrder(db *sql.DB, orderId int) ([]int, error) {
+func GetBoxesToCompleteForOrder(tx *sql.Tx, orderId int) ([]int, error) {
 	var result []int
 	var totalAmounts []int
 	var completedBoxes []int
 	combinedBoxes := 0
 
-	totalAmounts, err := GetTotalBoxesAmount(db, orderId)
+	totalAmounts, err := GetTotalBoxesAmount(tx, orderId)
 	if err != nil {
 		log.Println("error get total boxes amount: " + err.Error())
 		return nil, err
 	}
-	completedBoxes, err = GetCompletedBoxesAmount(db, orderId)
+	completedBoxes, err = GetCompletedBoxesAmount(tx, orderId)
 	if err != nil {
 		log.Println("error get completed boxes amount: " + err.Error())
 		return nil, err
 	}
-	combinedBoxes, err = getSmallBoxesAmountForOrder(db, orderId)
+	combinedBoxes, err = getSmallBoxesAmountForOrder(tx, orderId)
 	if err != nil {
 		log.Println("error get combined boxes amount: " + err.Error())
 		return nil, err
@@ -618,7 +618,7 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
+func GetTotalBoxesAmount(tx *sql.Tx, orderId int) ([]int, error) {
 	var amounts [26]int
 	var result []int
 
@@ -631,7 +631,7 @@ func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	// log.Println(statement)
 
 	// get total amount of every good type
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error get total amount of goods for order: " + err.Error())
 		return []int{0}, err
@@ -664,12 +664,12 @@ func GetTotalBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
+func GetCompletedBoxesAmount(tx *sql.Tx, orderId int) ([]int, error) {
 	var result []int
 	var amounts [26]int
 	statement := "select id from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ") order by id;"
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error query select all boxes amount")
 		return nil, err
@@ -691,12 +691,12 @@ func GetCompletedBoxesAmount(db *sql.DB, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetCompletedBoxesIds(db *sql.DB, orderId int) ([]int, error) {
+func GetCompletedBoxesIds(tx *sql.Tx, orderId int) ([]int, error) {
 	var result []int
 	statement := "select id from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
 
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error query select all boxes ids")
 		return nil, err
@@ -713,14 +713,14 @@ func GetCompletedBoxesIds(db *sql.DB, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func getCompletedBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
+func getCompletedBoxesAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	// defer trace("getCompletedBoxesAmountForOrder", time.Now())
 
 	var boxes = 0
 
 	statement := "select count(id) from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error get amount of boxes for order: " + err.Error())
 	}
@@ -731,13 +731,13 @@ func getCompletedBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
 	return boxes, nil
 }
 
-func getPalletsAmountForOrder(db *sql.DB, orderId int) (int, error) {
+func getPalletsAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	// defer trace("getPalletsAmountForOrder", time.Now())
 
 	var pallets = 0
 
 	statement := "select count(id) from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ";"
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error get amount of pallets for order: " + err.Error())
 	}
@@ -748,13 +748,13 @@ func getPalletsAmountForOrder(db *sql.DB, orderId int) (int, error) {
 	return pallets, nil
 }
 
-func getSmallBoxesAmountForOrder(db *sql.DB, orderId int) (int, error) {
+func getSmallBoxesAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	// defer trace("getSmallBoxesAmountForOrder", time.Now())
 
 	var boxes = 0
 
 	statement := "select count(id) from rosstat.small_boxes where order_id = " + strconv.Itoa(orderId) + ";"
-	rows, err := db.Query(statement)
+	rows, err := tx.Query(statement)
 	if err != nil {
 		log.Println("error get amount of small boxes for order: " + err.Error())
 	}
@@ -1235,23 +1235,26 @@ func GetAllPalletsBarcodesAndNums(db *sql.DB, orderId int)([]PalletInfo, error){
 }
 
 // put data in rosstat.boxes
-func createBoxesRecord(db *sql.DB, palletId string, boxes []string, us string) error {
+func createBoxesRecord(tx *sql.Tx, palletId string, boxes []string, us string) error {
 	statement := "insert into rosstat.boxes values " // rosstat.boxes columns: id, pallet_id, us_name
 	for i := 0; i < len(boxes); i++ {
 		statement += "(" + boxes[i] + ", " + palletId + ", '" + us + "'),"
 	}
 	statement = strings.TrimRight(statement, ",")
 	statement += ";"
-	_, err := db.Query(statement)
+	_, err := tx.Exec(statement)
 	if err != nil {
 		log.Println("error execute query to insert boxes for order")
+		if err := tx.Rollback(); err != nil {
+			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+		}
 		return err
 	}
 	return nil
 }
 
 // put data in rosstat.small_boxes
-func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, us string) error {
+func createSmallBoxesRecord(tx *sql.Tx, orderId int, boxIds []string, us string) error {
 	log.Println(us + " in createSmallBoxesRecord")
 	statementInsert := "insert into rosstat.small_boxes values "
 	for i := 0; i < len(boxIds); i++ {
@@ -1260,20 +1263,23 @@ func createSmallBoxesRecord(db *sql.DB, orderId int, boxIds []string, us string)
 	statementInsert = strings.TrimRight(statementInsert, ",")
 	statementInsert += ";"
 	log.Println("st: " + statementInsert)
-	_, err := db.Query(statementInsert)
+	_, err := tx.Exec(statementInsert)
 	if err != nil {
-		log.Println("error execute query to insert small boxes for order")
+		log.Println("error execute query to insert small boxes for order. Transaction will be roll back")
+		if err := tx.Rollback(); err != nil {
+			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+		}
 		return err
 	}
 	return nil
 }
 
 // check if pallet last in order returns: is last, is small completed
-func isPalletLastInOrder(db *sql.DB, orderId int, barcodes []string) (bool, bool) {
+func isPalletLastInOrder(tx *sql.Tx, orderId int, barcodes []string) (bool, bool) {
 	isLast := false
 	isSmallCompleted := false
 	// 1. get total boxes for order
-	total, err := GetTotalBoxesAmount(db, orderId)
+	total, err := GetTotalBoxesAmount(tx, orderId)
 	if err != nil {
 		log.Println("error get total amount of boxes for order")
 	}
@@ -1282,7 +1288,7 @@ func isPalletLastInOrder(db *sql.DB, orderId int, barcodes []string) (bool, bool
 		tot += total[i]
 	}
 	// 2. get completed boxes for order
-	completed, err := GetCompletedBoxesAmount(db, orderId)
+	completed, err := GetCompletedBoxesAmount(tx, orderId)
 	if err != nil {
 		log.Println("error get amount of completed boxes for order")
 	}
@@ -1291,7 +1297,7 @@ func isPalletLastInOrder(db *sql.DB, orderId int, barcodes []string) (bool, bool
 		comp += completed[i]
 	}
 	// 3. get small boxes for order
-	small, err := getSmallBoxesAmountForOrder(db, orderId)
+	small, err := getSmallBoxesAmountForOrder(tx, orderId)
 	if err != nil {
 		log.Println("error get amount of small boxes for order")
 	}
@@ -1308,36 +1314,45 @@ func isPalletLastInOrder(db *sql.DB, orderId int, barcodes []string) (bool, bool
 }
 
 // put pallet data to db
-func createPalletRecord(db *sql.DB, orderId, palletNum int, palletId string) error {
+func createPalletRecord(tx *sql.Tx, orderId, palletNum int, palletId string) error {
 	statement := "insert into rosstat.pallets values(" +
 		palletId + ", " +
 		strconv.Itoa(palletNum) + ", " + strconv.Itoa(orderId) + ");"
-	_, err := db.Query(statement)
+	_, err := tx.Exec(statement)
 	if err != nil {
 		log.Println("error insert into pallets: " + err.Error())
+		if err := tx.Rollback(); err != nil {
+			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+		}
 		return err
 	}
 	return nil
 }
 
-func completeTheOrder(db *sql.DB, orderId int) error {
+func completeTheOrder(tx *sql.Tx, orderId int) error {
 
 	statement := "update rosstat.rosstat_orders set completed = true where id = " + strconv.Itoa(orderId) + ";"
-	_, err := db.Query(statement)
+	_, err := tx.Exec(statement)
 	if err != nil {
 		log.Println("error update completion of order: " + err.Error())
+		if err := tx.Rollback(); err != nil {
+			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+		}
 		return err
 	}
 
 	return nil
 }
 
-func ShipTheOrder(db *sql.DB, orderId int) error {
+func ShipTheOrder(tx *sql.Tx, orderId int) error {
 
 	statement := "update rosstat.rosstat_orders set shipped = true where id = " + strconv.Itoa(orderId) + ";"
-	_, err := db.Query(statement)
+	_, err := tx.Exec(statement)
 	if err != nil {
 		log.Println("error update completion of order: " + err.Error())
+		if err := tx.Rollback(); err != nil {
+			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+		}
 		return err
 	}
 

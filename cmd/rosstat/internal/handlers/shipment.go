@@ -13,7 +13,12 @@ import (
 func GetReadyForShipment(c echo.Context) error {
 	ctx := c.(*RosContext)
 
-	result, err := db.GetAllOrdersForShipment(ctx.DB())
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. shipment 18: " + err.Error())
+		return err
+	}
+	result, err := db.GetAllOrdersForShipment(tx)
 	if err != nil {
 		log.Println("error get all orders for shipment: " + err.Error())
 		return err
@@ -45,7 +50,13 @@ func FinishPalletShipment(c echo.Context) error {
 		return err
 	}
 
-	err = db.ShipTheOrder(ctx.DB(), orderID)
+	tx, err := ctx.DB().Begin()
+	if err != nil {
+		log.Println("error create tx. shipment 55: " + err.Error())
+		return err
+	}
+
+	err = db.ShipTheOrder(tx, orderID)
 	if err != nil{
 		log.Println("error ship order: " + err.Error())
 		return err
