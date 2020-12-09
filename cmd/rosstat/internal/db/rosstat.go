@@ -71,31 +71,31 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 		return nil, err
 	}
 
-	for _, ord := range result{
-		boxes, err := getCompletedBoxesAmountForOrder(tx, ord.ID)
+	for i:= 0; i < len(result); i++{
+		boxes, err := getCompletedBoxesAmountForOrder(tx, result[i].ID)
 		if err != nil {
 			log.Println("error get amount of box for order: " + err.Error())
 		}
 
-		pallets, err := getPalletsAmountForOrder(tx, ord.ID)
+		pallets, err := getPalletsAmountForOrder(tx, result[i].ID)
 		if err != nil {
 			log.Println("error get amount of pallets for order: " + err.Error())
 		}
 
-		smallBoxes, err := getSmallBoxesAmountForOrder(tx, ord.ID)
+		smallBoxes, err := getSmallBoxesAmountForOrder(tx, result[i].ID)
 		if err != nil {
 			log.Println("error get amount of combined boxes for order: " + err.Error())
 		}
-		ord.SubOrders[0].AmountPallets = pallets
-		ord.SubOrders[0].AmountBoxes = boxes
-		ord.SubOrders[1].AmountBoxes = smallBoxes
-		ord.AmountPallets = pallets
-		ord.AmountBoxes = boxes + smallBoxes
-		if ord.ID == 58{
-			log.Println(ord.AmountBoxes)
+		result[i].SubOrders[0].AmountPallets = pallets
+		result[i].SubOrders[0].AmountBoxes = boxes
+		result[i].SubOrders[1].AmountBoxes = smallBoxes
+		result[i].AmountPallets = pallets
+		result[i].AmountBoxes = boxes + smallBoxes
+		if result[i].ID == 58{
+			log.Println(result[i].AmountBoxes)
 		}
-		if ord.ID == 58{
-			log.Println(ord.AmountPallets)
+		if result[i].ID == 58{
+			log.Println(result[i].AmountPallets)
 		}
 	}
 	return result, nil
@@ -123,21 +123,6 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 			return nil, err
 		}
 
-		boxes, err := getCompletedBoxesAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of box for order: " + err.Error())
-		}
-
-		pallets, err := getPalletsAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of pallets for order: " + err.Error())
-		}
-
-		smallBoxes, err := getSmallBoxesAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of combined boxes for order: " + err.Error())
-		}
-
 		tmp := OrdersModel{
 			ID:            order.Id,
 			Num:           index,
@@ -145,20 +130,20 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 			Customer:      order.Customer,
 			Address:       order.Address,
 			Run:           order.Run,
-			AmountPallets: pallets,
-			AmountBoxes:   boxes,
+			AmountPallets: 0,
+			AmountBoxes:   0,
 			SubOrders: []SubOrderModel{
 				{
 					IsSmall:       false,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
-					AmountPallets: pallets,
-					AmountBoxes:   boxes,
+					AmountPallets: 0,
+					AmountBoxes:   0,
 				},
 				{
 					IsSmall:       true,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " сборные",
 					AmountPallets: 0,
-					AmountBoxes:   smallBoxes,
+					AmountBoxes:   0,
 				},
 			},
 		}
@@ -170,6 +155,21 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 		log.Println("error close row: " + err.Error())
 		return nil, err
 	}
+
+	for i:= 0; i < len(result); i++ {
+		boxes, err := getCompletedBoxesAmountForOrder(tx, result[i].ID)
+		if err != nil {
+			log.Println("error get amount of box for order: " + err.Error())
+		}
+
+		pallets, err := getPalletsAmountForOrder(tx, result[i].ID)
+		if err != nil {
+			log.Println("error get amount of pallets for order: " + err.Error())
+		}
+		result[i].AmountPallets = pallets
+		result[i].AmountBoxes = boxes
+	}
+
 	return result, nil
 }
 
