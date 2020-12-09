@@ -157,7 +157,10 @@ export function ShipmentPalletPage() {
         });
 
         return () => {
-            session.curPage = "none";
+            runInAction(() => {
+                session.curPage = "none";
+                session.currentShipmentPallet = [];
+            });
         }
     }, [session, id])
 

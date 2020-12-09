@@ -81,7 +81,10 @@ export function OrdersBigPage() {
         });
 
         return () => {
-            session.curPage = "none";
+            runInAction(() => {
+                session.curPage = "none";
+                session.currentBigOrder = [];
+            });
         }
     }, [session, id])
 

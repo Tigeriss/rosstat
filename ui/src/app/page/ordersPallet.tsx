@@ -153,7 +153,10 @@ export function OrdersPalletPage() {
         window.addEventListener("beforeunload", warnOnUnload);
         return () => {
             window.removeEventListener("beforeunload", warnOnUnload);
-            session.curPage = "none";
+            runInAction(() => {
+                session.curPage = "none";
+                session.currentBigPalletOrder = {pallet_num: 0, types: []};
+            });
         }
     }, [session, id, warnOnUnload])
 

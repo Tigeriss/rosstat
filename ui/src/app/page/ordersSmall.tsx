@@ -119,7 +119,10 @@ export function OrdersSmallPage() {
         });
 
         return () => {
-            session.curPage = "none";
+            runInAction(() => {
+                session.curPage = "none";
+                session.currentSmallOrder = [];
+            });
         }
     }, [session, id])
 
