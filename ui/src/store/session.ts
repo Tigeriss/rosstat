@@ -160,8 +160,7 @@ export class Session {
         const currentBigOrder = await orders.getBigOrdersToBuild(this, this.currentOrderId);
 
         runInAction(() => {
-            this.currentBigOrder.forEach(v => this.currentBigOrder.pop());
-            currentBigOrder.forEach(v => this.currentBigOrder.push(v));
+            this.currentBigOrder = currentBigOrder;
         });
 
     }
@@ -174,8 +173,7 @@ export class Session {
         const currentSmallOrder = await orders.getSmallOrdersToBuild(this, this.currentOrderId);
 
         runInAction(() => {
-            this.currentSmallOrder.forEach(v => this.currentSmallOrder.pop());
-            currentSmallOrder.forEach(v => this.currentSmallOrder.push(v));
+            this.currentSmallOrder = currentSmallOrder;
         });
     }
 
@@ -274,8 +272,7 @@ export class Session {
         const currentShipments = await shipment.getShipmentReady(this);
 
         runInAction(() => {
-            this.currentShipments.forEach(v => this.currentShipments.pop());
-            currentShipments.forEach(v => this.currentShipments.push(v));
+            this.currentShipments = currentShipments;
         });
     }
 
@@ -285,8 +282,7 @@ export class Session {
         }
         const currentShipmentPallet = await shipment.getShipmentPallet(this, this.currentShipmentId);
         runInAction(() => {
-            this.currentShipmentPallet.forEach(v => this.currentShipmentPallet.pop());
-            currentShipmentPallet.forEach(v => this.currentShipmentPallet.push(v));
+            this.currentShipmentPallet = currentShipmentPallet;
         });
     }
 

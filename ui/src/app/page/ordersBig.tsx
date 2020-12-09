@@ -8,7 +8,7 @@ import {BigOrdersModel, OrdersModel} from "../../api/orders";
 import {runInAction} from "mobx";
 
 function renderForm(form: BigOrdersModel) {
-    return <Table.Row positive={form.total - form.built === 0} key={`${form.form_name}-${form.total}-${form.built}`}>
+    return <Table.Row positive={form.total - form.built === 0} key={`${form.type}`}>
         <Table.Cell width="10">{form.form_name}</Table.Cell>
         <Table.Cell width="1">{form.total}</Table.Cell>
         <Table.Cell width="1">{form.built}</Table.Cell>
