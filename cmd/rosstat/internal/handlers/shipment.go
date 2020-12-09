@@ -18,6 +18,11 @@ func GetReadyForShipment(c echo.Context) error {
 		log.Println("error create tx. shipment 18: " + err.Error())
 		return err
 	}
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			log.Println("Emergency! Error in transaction!")
+		}
+	}()
 	result, err := db.GetAllOrdersForShipment(tx)
 	if err != nil {
 		log.Println("error get all orders for shipment: " + err.Error())
@@ -55,6 +60,11 @@ func FinishPalletShipment(c echo.Context) error {
 		log.Println("error create tx. shipment 55: " + err.Error())
 		return err
 	}
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			log.Println("Emergency! Error in transaction!")
+		}
+	}()
 
 	err = db.ShipTheOrder(tx, orderID)
 	if err != nil{

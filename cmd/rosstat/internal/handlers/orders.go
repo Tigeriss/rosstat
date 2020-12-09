@@ -26,16 +26,17 @@ func GetToBuildOrders(c echo.Context) error {
 		log.Println("error create tx. 26: " + err.Error())
 		return err
 	}
-	result, err := db.GetAllOrdersForCompletion(tx)
-	if err != nil {
-		log.Println("error get all orders for completion: " + err.Error())
-		return err
-	}
 	defer func() {
 		if err := tx.Commit(); err != nil {
 			log.Println("Emergency! Error in transaction!")
 		}
 	}()
+	result, err := db.GetAllOrdersForCompletion(tx)
+	if err != nil {
+		log.Println("error get all orders for completion: " + err.Error())
+		return err
+	}
+
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -55,17 +56,17 @@ func GetBigToBuildOrders(c echo.Context) error {
 		log.Println("error create tx. 50: " + err.Error())
 		return err
 	}
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			log.Println("Emergency! Error in transaction!")
+		}
+	}()
 	result, err := db.GetOrderListForBigSuborder(tx, orderID)
 	if err != nil {
 		log.Println("error GetOrderListForBigSuborder: " + err.Error())
 		return err
 	}
 
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -120,11 +121,6 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 	log.Println(strconv.Itoa(boxesAmount) + " boxes were put in db")
 	return ctx.NoContent(http.StatusNoContent)
 }
@@ -144,12 +140,12 @@ func GetBigPalletOrders(c echo.Context) error {
 		log.Println("error create tx. 128: " + err.Error())
 		return err
 	}
-	result, err := db.GetOrderListForPallets(tx, orderID)
 	defer func() {
 		if err := tx.Commit(); err != nil {
 			log.Println("Emergency! Error in transaction!")
 		}
 	}()
+	result, err := db.GetOrderListForPallets(tx, orderID)
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -237,6 +233,11 @@ func FinishBigPalletOrders(c echo.Context) error {
 		log.Println("error create tx. 216: " + err.Error())
 		return err
 	}
+	defer func() {
+		if err := tx.Commit(); err != nil {
+			log.Println("Emergency! Error in transaction!")
+		}
+	}()
 
 	result, err := db.CreatePallet(tx, orderID, req.PalletNum, req.Barcodes, ctx.User().Login)
 
@@ -244,12 +245,6 @@ func FinishBigPalletOrders(c echo.Context) error {
 		log.Println("error create pallet: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
-
 
 	return ctx.JSON(http.StatusOK, result)
 }
