@@ -8,6 +8,7 @@ import {Button, Dimmer, Divider, Form, Grid, Header, Input, Loader, Message, Tab
 import {Session} from "../../store/session";
 import {runInAction} from "mobx";
 
+let audio = new Audio();
 function renderTypes(type: { type: BigOrdersModel, barcode: string | null }, i: number) {
     return <Table.Row key={i} positive={(type.barcode ?? "").length > 0}>
         <Table.Cell>{type.type.form_name}</Table.Cell>
@@ -42,6 +43,8 @@ function renderOrder(order: OrdersModel | null, pallet: BigPalletModel, history:
                     if (session.matchPalletBarcode(type.type, barcode)) {
                         session.lastSuccess = `Отсканирован короб ${type.type} ${barcode}`;
                     } else {
+                        audio.play();
+                        alert("ОШИБКА! Отсканирован ошибочный короб!!!")
                         session.lastError = "Внимание! Отсканирован ошибочный короб!";
                     }
                 } else {

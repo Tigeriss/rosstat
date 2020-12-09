@@ -26,15 +26,14 @@ func GetToBuildOrders(c echo.Context) error {
 		log.Println("error create tx. 26: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 	result, err := db.GetAllOrdersForCompletion(tx)
-	if err != nil {
-		log.Println("error get all orders for completion: " + err.Error())
-		return err
+	// if err != nil {
+	// 	log.Println("error get all orders for completion: " + err.Error())
+	// 	return err
+	// }
+	if err := tx.Commit(); err != nil {
+		log.Println("Emergency! Error in transaction!")
+		return ctx.NoContent(http.StatusInternalServerError)
 	}
 
 
@@ -56,15 +55,15 @@ func GetBigToBuildOrders(c echo.Context) error {
 		log.Println("error create tx. 50: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 	result, err := db.GetOrderListForBigSuborder(tx, orderID)
-	if err != nil {
-		log.Println("error GetOrderListForBigSuborder: " + err.Error())
-		return err
+
+	// if err != nil {
+	// 	log.Println("error GetOrderListForBigSuborder: " + err.Error())
+	// 	return err
+	// }
+	if err := tx.Commit(); err != nil {
+		log.Println("Emergency! Error in transaction!")
+		return ctx.NoContent(http.StatusInternalServerError)
 	}
 
 
@@ -110,16 +109,15 @@ func FinishSmallToBuildOrders(c echo.Context) error {
 		log.Println("error create tx. 86: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 
 	boxesAmount, err := db.PutSmallOrderToDB(tx, orderID, req.Boxes, us)
-	if err != nil{
-		log.Println("orders. 87. Can't put small order to DB: " + err.Error())
-		return err
+	// if err != nil{
+	// 	log.Println("orders. 87. Can't put small order to DB: " + err.Error())
+	// 	return err
+	// }
+	if err := tx.Commit(); err != nil {
+		log.Println("Emergency! Error in transaction!")
+		return ctx.NoContent(http.StatusInternalServerError)
 	}
 	log.Println(strconv.Itoa(boxesAmount) + " boxes were put in db")
 	return ctx.NoContent(http.StatusNoContent)
@@ -140,13 +138,11 @@ func GetBigPalletOrders(c echo.Context) error {
 		log.Println("error create tx. 128: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 	result, err := db.GetOrderListForPallets(tx, orderID)
-
+	if err := tx.Commit(); err != nil {
+		log.Println("Emergency! Error in transaction!")
+		return ctx.NoContent(http.StatusInternalServerError)
+	}
 	return ctx.JSON(http.StatusOK, result)
 }
 
@@ -167,34 +163,6 @@ func GetBigPalletNum(c echo.Context) error {
 		log.Println("error get data for label and registry" + err.Error())
 		return err
 	}
-	// 	PrintPalletModel{
-	//
-	// 	OrderCaption:   "О-20-123-РОССТАТ 2",
-	// 	Address:        "107123, Москва",
-	// 	Provider:       "Жирпром",
-	// 	ContractNumber: "123-53322",
-	// 	Barcode:        "123456789012",
-	// 	Register:       []db.PrintPalletRegisterModel{
-	// 		{
-	// 			NumPP:    1,
-	// 			Position: "Форма №2. Записная книжечка Котофея Матвеевича",
-	// 			Amount:   10,
-	// 			Boxes:    5,
-	// 		},
-	// 		{
-	// 			NumPP:    2,
-	// 			Position: "Форма №3. Записная книжечка Котофея Матвеевича",
-	// 			Amount:   10,
-	// 			Boxes:    5,
-	// 		},
-	// 		{
-	// 			NumPP:    3,
-	// 			Position: "Форма №4. Записная книжечка Котофея Матвеевича",
-	// 			Amount:   10,
-	// 			Boxes:    5,
-	// 		},
-	// 	},
-	// }
 
 	return ctx.JSON(http.StatusOK, result)
 }
@@ -233,17 +201,15 @@ func FinishBigPalletOrders(c echo.Context) error {
 		log.Println("error create tx. 216: " + err.Error())
 		return err
 	}
-	defer func() {
-		if err := tx.Commit(); err != nil {
-			log.Println("Emergency! Error in transaction!")
-		}
-	}()
 
 	result, err := db.CreatePallet(tx, orderID, req.PalletNum, req.Barcodes, ctx.User().Login)
-
-	if err != nil {
-		log.Println("error create pallet: " + err.Error())
-		return err
+	// if err != nil {
+	// 	log.Println("error create pallet: " + err.Error())
+	// 	return err
+	// }
+	if err := tx.Commit(); err != nil {
+		log.Println("Emergency! Error in transaction!")
+		return ctx.NoContent(http.StatusInternalServerError)
 	}
 
 	return ctx.JSON(http.StatusOK, result)

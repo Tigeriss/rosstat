@@ -20,7 +20,7 @@ func trace(name string, started time.Time) {
 
 // for /orders
 func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
-	defer trace("GetAllOrdersForCompletion", time.Now())
+	// defer trace("GetAllOrdersForCompletion", time.Now())
 
 	var result []OrdersModel
 
@@ -30,7 +30,6 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 		log.Println("error query statementGetOrders - select all orders")
 		return nil, err
 	}
-
 	var index = 1
 	for rows.Next() {
 		order := Order{}
@@ -39,22 +38,6 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 			log.Println("error get data from row: " + err.Error())
 			return nil, err
 		}
-
-		boxes, err := getCompletedBoxesAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of box for order: " + err.Error())
-		}
-
-		pallets, err := getPalletsAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of pallets for order: " + err.Error())
-		}
-
-		smallBoxes, err := getSmallBoxesAmountForOrder(tx, order.Id)
-		if err != nil {
-			log.Println("error get amount of combined boxes for order: " + err.Error())
-		}
-
 		tmp := OrdersModel{
 			ID:            order.Id,
 			Num:           index,
@@ -62,20 +45,20 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 			Customer:      order.Customer,
 			Address:       order.Address,
 			Run:           order.Run,
-			AmountPallets: pallets,
-			AmountBoxes:   boxes + smallBoxes,
+			AmountPallets: 0,
+			AmountBoxes:   0,
 			SubOrders: []SubOrderModel{
 				{
 					IsSmall:       false,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " короба",
-					AmountPallets: pallets,
-					AmountBoxes:   boxes,
+					AmountPallets: 0,
+					AmountBoxes:   0,
 				},
 				{
 					IsSmall:       true,
 					OrderCaption:  order.NumOrder + "-" + order.OrderName + " сборные",
 					AmountPallets: 0,
-					AmountBoxes:   smallBoxes,
+					AmountBoxes:   0,
 				},
 			},
 		}
@@ -86,6 +69,34 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 	if err != nil {
 		log.Println("error close row: " + err.Error())
 		return nil, err
+	}
+
+	for _, ord := range result{
+		boxes, err := getCompletedBoxesAmountForOrder(tx, ord.ID)
+		if err != nil {
+			log.Println("error get amount of box for order: " + err.Error())
+		}
+
+		pallets, err := getPalletsAmountForOrder(tx, ord.ID)
+		if err != nil {
+			log.Println("error get amount of pallets for order: " + err.Error())
+		}
+
+		smallBoxes, err := getSmallBoxesAmountForOrder(tx, ord.ID)
+		if err != nil {
+			log.Println("error get amount of combined boxes for order: " + err.Error())
+		}
+		ord.SubOrders[0].AmountPallets = pallets
+		ord.SubOrders[0].AmountBoxes = boxes
+		ord.SubOrders[1].AmountBoxes = smallBoxes
+		ord.AmountPallets = pallets
+		ord.AmountBoxes = boxes + smallBoxes
+		if ord.ID == 58{
+			log.Println(ord.AmountBoxes)
+		}
+		if ord.ID == 58{
+			log.Println(ord.AmountPallets)
+		}
 	}
 	return result, nil
 }
@@ -187,6 +198,7 @@ func GetOrderListForBigSuborder(tx *sql.Tx, orderId int) ([]BigOrdersModel, erro
 	var amounts [27]int
 
 	total, err := GetTotalBoxesAmount(tx, orderId)
+
 	if err != nil {
 		log.Println("error get boxes amount for order: " + err.Error())
 		return nil, err
@@ -217,10 +229,11 @@ func GetOrderListForBigSuborder(tx *sql.Tx, orderId int) ([]BigOrdersModel, erro
 
 	var allCompletedBoxes [27]int
 	allCompletedBoxIds, err := GetCompletedBoxesIds(tx, orderId)
+
 	if len(allCompletedBoxIds) != 0 {
 		for i := 0; i < len(allCompletedBoxIds); i++ {
 			good := GetProductByBoxID(allCompletedBoxIds[i])
-			allCompletedBoxes[good.Type] ++
+			allCompletedBoxes[good.Type - 1] ++
 		}
 	}
 
@@ -1442,7 +1455,10 @@ func generateBarcodeWithControlNumForPalletId(palletId string) (string, error){
 	even *= 3
 	res := even + odd
 	res = res % 10
-	conNum := 10 - res
+	conNum := 0
+	if res != 0{
+		conNum = 10 - res
+	}
 
 	return palletId + strconv.Itoa(conNum), nil
 }
