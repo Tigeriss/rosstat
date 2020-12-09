@@ -1322,7 +1322,7 @@ func createPalletRecord(tx *sql.Tx, orderId, palletNum int, palletId string) err
 	if err != nil {
 		log.Println("error insert into pallets: " + err.Error())
 		if err := tx.Rollback(); err != nil {
-			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+			log.Println("Transaction rollback failed!")
 		}
 		return err
 	}
@@ -1336,7 +1336,7 @@ func completeTheOrder(tx *sql.Tx, orderId int) error {
 	if err != nil {
 		log.Println("error update completion of order: " + err.Error())
 		if err := tx.Rollback(); err != nil {
-			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+			log.Println("Transaction rollback failed!")
 		}
 		return err
 	}
@@ -1351,7 +1351,7 @@ func ShipTheOrder(tx *sql.Tx, orderId int) error {
 	if err != nil {
 		log.Println("error update completion of order: " + err.Error())
 		if err := tx.Rollback(); err != nil {
-			log.Println("We were unable to rollback transaction. That's odd but we really can't do anything else here")
+			log.Println("Transaction rollback failed!")
 		}
 		return err
 	}
