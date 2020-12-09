@@ -333,6 +333,11 @@ func GetOrderListForPallets(tx *sql.Tx, orderId int) (BigPalletModel, error) {
 		}
 		allPalletsNums = append(allPalletsNums, palNum)
 	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return BigPalletModel{}, err
+	}
 	if len(allPalletsNums) > 0 {
 		palNum = allPalletsNums[0]
 	} else {
@@ -448,6 +453,11 @@ func GetOrderById(db *sql.DB, orderId int) (Order, error) {
 			return result, err
 		}
 	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return result, err
+	}
 	return result, nil
 }
 
@@ -463,6 +473,11 @@ func GetBoxIdsForPallet(db *sql.DB, palletId string) ([]int, error){
 	for rows.Next(){
 		rows.Scan(&id)
 		result = append(result, id)
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
 	}
 	return result, nil
 }
@@ -685,6 +700,11 @@ func GetCompletedBoxesAmount(tx *sql.Tx, orderId int) ([]int, error) {
 		amounts[good.Type-1] ++
 
 	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 	for i := 0; i < 26; i++ {
 		result = append(result, amounts[i])
 	}
@@ -710,6 +730,11 @@ func GetCompletedBoxesIds(tx *sql.Tx, orderId int) ([]int, error) {
 		}
 		result = append(result, boxId)
 	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -717,6 +742,24 @@ func getCompletedBoxesAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	// defer trace("getCompletedBoxesAmountForOrder", time.Now())
 
 	var boxes = 0
+	// var pallets []int
+	// statement := "select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ";"
+	// rows, err := tx.Query(statement)
+	// if err != nil {
+	// 	log.Println("error get amount of pallets for order: " + err.Error())
+	// }
+	// pall := 0
+	// for rows.Next() {
+	// 	rows.Scan(&pall)
+	// 	pallets = append(pallets, pall)
+	// }
+	// rows.Close()
+	// if len(pallets) != 0{
+	// 	statement := "select count(id) from rosstat.boxes where pallet_id in ("
+	// 	for i := 0; i < len(pallets); i++{
+	//
+	// 	}
+	// }
 
 	statement := "select count(id) from rosstat.boxes where pallet_id in " +
 		"(select id from rosstat.pallets where order_id = " + strconv.Itoa(orderId) + ");"
@@ -726,6 +769,11 @@ func getCompletedBoxesAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	}
 	for rows.Next() {
 		rows.Scan(&boxes)
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return 0, err
 	}
 
 	return boxes, nil
@@ -744,7 +792,11 @@ func getPalletsAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	for rows.Next() {
 		rows.Scan(&pallets)
 	}
-
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return 0, err
+	}
 	return pallets, nil
 }
 
@@ -761,7 +813,11 @@ func getSmallBoxesAmountForOrder(tx *sql.Tx, orderId int) (int, error) {
 	for rows.Next() {
 		rows.Scan(&boxes)
 	}
-
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return boxes, err
+	}
 	return boxes, nil
 }
 
@@ -1229,8 +1285,16 @@ func GetAllPalletsBarcodesAndNums(db *sql.DB, orderId int)([]PalletInfo, error){
 		result[ind].boxes = tmpBoxes
 		ind ++
 	}
-	rows1.Close()
-	rows2.Close()
+	err = rows1.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
+	err = rows2.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return nil, err
+	}
 	return result, nil
 }
 
