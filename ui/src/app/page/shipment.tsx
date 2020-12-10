@@ -12,10 +12,14 @@ import {runInAction} from "mobx";
 
 function renderRow(history: ReturnType<typeof useHistory>, session: Session, order: ShipmentModel) {
     const next = () => {
-        history.push(`/shipment/pallet/${order.id}`);
+        if (order.shipped) {
+            window.open(`/shipment/print/${order.id}`);
+        } else {
+            history.push(`/shipment/pallet/${order.id}`);
+        }
     }
 
-    return <Table.Row warning onClick={next} key={order.id}>
+    return <Table.Row warning={order.shipped} onClick={next} key={order.id} disabled={!order.collected && !order.shipped}>
         <Table.Cell>{order.num}</Table.Cell>
         <Table.Cell>{order.order_caption}</Table.Cell>
         <Table.Cell>{order.customer}</Table.Cell>

@@ -18,11 +18,14 @@ table.print {
     width: 100%;
 }
 
-table.print, table.print th {
-    border: 2px solid black;
+table.print {
     border-collapse: collapse;
-    padding: 11px;
     font-size: 1.2em;
+}
+
+table.print th {
+    border: 2px solid black;
+    padding: 11px;
 }
 
 table.print td {
@@ -31,6 +34,14 @@ table.print td {
     border-collapse: collapse;
     padding: 11px;
     font-size: 1.2em;
+}
+
+table.print td.no-borders, table.print th.no-borders {
+    border: none;
+}
+
+table.print tr.full-borders td {
+    border: 2px solid black;
 }
 
 /* Chrome, Safari, Edge, Opera */

@@ -10,7 +10,7 @@ import {
     BigPalletModel,
     OrdersModel
 } from "../api/orders";
-import {ShipmentModel, ShipmentPalletModel} from "../api/shipment";
+import {ShipmentModel, ShipmentPalletModel, ShipmentReportModel} from "../api/shipment";
 import {SemanticShorthandCollection} from "semantic-ui-react/dist/commonjs/generic";
 import {BreadcrumbSectionProps} from "semantic-ui-react/dist/commonjs/collections/Breadcrumb/BreadcrumbSection";
 
@@ -286,6 +286,10 @@ export class Session {
         });
     }
 
+    async findShipmentReport(id: number): Promise<ShipmentReportModel> {
+        return await shipment.getShipmentReport(this, id);
+    }
+
     async finishPalletShipment(): Promise<void> {
         if (this.currentShipmentId == null) {
             return Promise.reject(new Error("orderId is null"));
@@ -308,6 +312,7 @@ export class Session {
         await admin.deleteUser(this, login);
         this.users = this.users.filter(u => u.login !== login);
     }
+
 }
 
 export const session = new Session();

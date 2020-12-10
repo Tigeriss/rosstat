@@ -18,6 +18,7 @@ import {OrdersPalletPage} from "./page/ordersPallet";
 import {ShipmentPage} from "./page/shipment";
 import {ShipmentPalletPage} from "./page/shipmentPallet";
 import { PalletPrint } from "./page/palletPrint";
+import { ShipmentReportPage } from "./page/shipmentReport";
 
 const SessionContext = React.createContext(session);
 
@@ -96,6 +97,9 @@ function StorekeeperRouter() {
             <Route path="/shipment/pallet/:id">
                 <AppHeader/>
                 <ShipmentPalletPage />
+            </Route>
+            <Route path="/shipment/print/:id">
+                <ShipmentReportPage />
             </Route>
             <Route path="/shipment">
                 <AppHeader/>

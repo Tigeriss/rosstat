@@ -13,7 +13,7 @@ type Good struct {
 }
 
 type PalletRegistryGoodsData struct {
-	good Good
+	good  Good
 	boxes int
 }
 
@@ -29,9 +29,9 @@ type Order struct {
 }
 
 type PalletInfo struct {
-	barcode string
+	barcode   string
 	palletNum int
-	boxes int
+	boxes     int
 }
 
 // GET /orders
@@ -53,6 +53,8 @@ type OrdersModel struct {
 	AmountPallets int             `json:"amount_pallets"`
 	AmountBoxes   int             `json:"amount_boxes"`
 	SubOrders     []SubOrderModel `json:"sub_orders,omitempty"`
+	Collected     bool            `json:"collected,omitempty"`
+	Shipped       bool            `json:"shipped,omitempty"`
 }
 
 // GET /orders/big/build - used by /orders/big page
@@ -99,6 +101,23 @@ type ShipmentPalletModel struct {
 	PalletNum   int    `json:"pallet_num"`
 	Barcode     string `json:"barcode"`
 	AmountBoxes int    `json:"amount_boxes"`
+}
+
+type ShipmentReportModel struct {
+	OrderCaption string                    `json:"order_caption"`
+	Address      string                    `json:"address"`
+	TotalBoxes   int                       `json:"total_boxes"`
+	TotalPallets int                       `json:"total_pallets"`
+	Items        []ShipmentReportItemModel `json:"items"`
+}
+
+type ShipmentReportItemModel struct {
+	Num                 int    `json:"num"`
+	Name                string `json:"name"`
+	Run                 int    `json:"run"`
+	AmountInBox         int    `json:"amount_in_box"`
+	CompletedBoxes      int    `json:"completed_boxes"`
+	AmountInComposedBox int    `json:"amount_in_composed_box"`
 }
 
 type PrintPalletRegisterModel struct {

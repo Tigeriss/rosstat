@@ -147,7 +147,7 @@ export function ShipmentPalletPage() {
             session.curPage = "shipment-pallet";
             session.breadcrumbs = [
                 {key: 'shipment', content: 'Комплектование', as: Link, to: "/shipment"},
-                {key: 'big', content: `Заказ №${id}`, active: true},
+                {key: 'order', content: `Заказ №${id}`, active: true},
             ];
             session.lastError = "";
             session.sentPallets = {};
@@ -162,7 +162,7 @@ export function ShipmentPalletPage() {
                 session.currentShipmentPallet = [];
             });
         }
-    }, [session, id])
+    }, [session, id]);
 
     return <Observer>{() =>
         <Layout>
