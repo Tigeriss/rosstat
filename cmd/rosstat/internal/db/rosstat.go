@@ -91,12 +91,6 @@ func GetAllOrdersForCompletion(tx *sql.Tx) ([]OrdersModel, error) {
 		result[i].SubOrders[1].AmountBoxes = smallBoxes
 		result[i].AmountPallets = pallets
 		result[i].AmountBoxes = boxes + smallBoxes
-		if result[i].ID == 58{
-			log.Println(result[i].AmountBoxes)
-		}
-		if result[i].ID == 58{
-			log.Println(result[i].AmountPallets)
-		}
 	}
 	return result, nil
 }
