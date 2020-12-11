@@ -50,8 +50,8 @@ export const ShipmentReportPage = () => {
             </thead>
             <tbody>
             {report.items.map(renderItem)}
-            </tbody>
-            <tfoot>
+            {/*</tbody>*/}
+            {/*<tfoot>*/}
             <tr>
                 <th colSpan={3} className="no-borders" />
                 <th>Итого коробов</th>
@@ -64,11 +64,11 @@ export const ShipmentReportPage = () => {
                 <th>{report.total_pallets}</th>
                 <th colSpan={2} className="no-borders" />
             </tr>
-            </tfoot>
+            </tbody>
+            {/*</tfoot>*/}
         </table>
         <div>Дата: __________________________</div>
-        <div style={{float: "right"}}>Подпись: __________________________</div>
+        <div style={{float: "right"}}>Подпись: _______________________/М.П._______________</div>
         <div style={{clear: "both", height: 50}} />
-        <div style={{float: "right", marginRight: 300}}>Место для печати</div>
     </div>;
 }

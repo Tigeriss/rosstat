@@ -26,6 +26,8 @@ type Order struct {
 	Customer  string `db:"customer" json:"customer"`
 	OrderName string `db:"order_name" json:"order_name"`
 	Address   string `db:"address" json:"address"`
+	Collected     bool            `json:"collected,omitempty"`
+	Shipped       bool            `json:"shipped,omitempty"`
 }
 
 type PalletInfo struct {

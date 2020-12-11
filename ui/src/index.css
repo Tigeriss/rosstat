@@ -20,20 +20,20 @@ table.print {
 
 table.print {
     border-collapse: collapse;
-    font-size: 1.2em;
+    font-size: 0.9em;
 }
 
 table.print th {
     border: 2px solid black;
-    padding: 11px;
+    padding: 6px;
 }
 
 table.print td {
     border-left: 2px solid black;
     border-right: 2px solid black;
     border-collapse: collapse;
-    padding: 11px;
-    font-size: 1.2em;
+    padding: 6px;
+    font-size: 0.9em;
 }
 
 table.print td.no-borders, table.print th.no-borders {

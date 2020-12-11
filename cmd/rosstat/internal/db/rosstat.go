@@ -101,7 +101,7 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 
 	var result []OrdersModel
 
-	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address from rosstat.rosstat_orders where completed = true and shipped = false  order by id;"
+	statementGetOrders := "select id, num_order, contract, run, customer, order_name, address, completed, shipped from rosstat.rosstat_orders order by id;"
 	rows, err := tx.Query(statementGetOrders)
 	if err != nil {
 		log.Println("error query statementGetOrders - select all orders")
@@ -111,7 +111,7 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 	var index = 1
 	for rows.Next() {
 		order := Order{}
-		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer, &order.OrderName, &order.Address)
+		err = rows.Scan(&order.Id, &order.NumOrder, &order.Contract, &order.Run, &order.Customer, &order.OrderName, &order.Address, &order.Collected, &order.Shipped)
 		if err != nil {
 			log.Println("error get data from row: " + err.Error())
 			return nil, err
@@ -140,6 +140,8 @@ func GetAllOrdersForShipment(tx *sql.Tx) ([]OrdersModel, error) {
 					AmountBoxes:   0,
 				},
 			},
+			Collected: order.Collected,
+			Shipped: order.Shipped,
 		}
 		result = append(result, tmp)
 		index++
@@ -290,7 +292,7 @@ func GetOrderListForSmallSuborder(db *sql.DB, orderId int) ([]BigOrdersModel, er
 		log.Println("error close row: " + err.Error())
 		return result, err
 	}
-	allProductsTotal, err := GetTotalPiecesAmountForOrder(db, orderId)
+	allProductsTotal, err := GetTotalPiecesAmountForCombinedBoxesForOrder(db, orderId)
 	if err != nil {
 		log.Println("error get total pieces for order: " + err.Error())
 		return result, err
@@ -364,6 +366,97 @@ func GetOrderListForPallets(tx *sql.Tx, orderId int) (BigPalletModel, error) {
 			})
 		}
 	}
+	return result, nil
+}
+
+func GetShipmentReportData(tx *sql.Tx, orderId int)(ShipmentReportModel, error){
+
+	var result ShipmentReportModel
+	var tmp Order
+	statement := "select num_order, order_name, address from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+	rows, err := tx.Query(statement)
+	if err != nil {
+		log.Println("error query statementGetOrders - select all orders")
+		return ShipmentReportModel{}, err
+	}
+	for rows.Next(){
+		err = rows.Scan(&tmp.NumOrder, &tmp.OrderName, &tmp.Address)
+		if err != nil {
+			log.Println("Error populate data for report for order: " + err.Error())
+			return ShipmentReportModel{}, err
+		}
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close rows in get ship record data")
+		return ShipmentReportModel{}, err
+	}
+	// populate general data
+	result.OrderCaption = tmp.NumOrder + "-" + tmp.OrderName
+	result.Address = tmp.Address
+	pallets := 0
+	totalBoxes := 0
+	smallBoxes := 0
+	var runs []int // attention! only 26!!!
+	var boxes []int
+
+	// pallets:
+	pallets, err = getPalletsAmountForOrder(tx, orderId)
+	if err != nil {
+		log.Println("error get pallets amount for order: " + err.Error())
+	}
+	result.TotalPallets = pallets
+
+	// total boxes:
+	totalBoxes, err = getCompletedBoxesAmountForOrder(tx, orderId)
+	if err != nil {
+		log.Println("error get all boxes amount for order: " + err.Error())
+	}
+	result.TotalBoxes = totalBoxes
+
+	// runs for order:
+	runs, err = GetTotalPiecesAmountForOrder(tx, orderId)
+	if err != nil {
+		log.Println("error get runs for every type of good for order: " + err.Error())
+	}
+	// all boxes for order:
+	boxes, err = GetCompletedBoxesAmount(tx, orderId)
+	if err != nil {
+		log.Println("error get completed boxes amount for every type of good, except 27 for order: " + err.Error())
+	}
+
+	// small boxes amount:
+	smallBoxes, err = getSmallBoxesAmountForOrder(tx, orderId)
+	if err != nil {
+		log.Println("error get small boxes amount for order: " + err.Error())
+	}
+
+	index := 1
+	for i := 0; i < 26; i++ {
+		if runs[i] != 0{
+			good := GetProductByType(i + 1)
+			var item = ShipmentReportItemModel{
+				Num:                 index,
+				Name:                strings.Trim(good.Name, strconv.Itoa(i+1) + ". "),
+				Run:                 runs[i],
+				AmountInBox:         good.AmountInBox,
+				CompletedBoxes:      boxes[i],
+				AmountInComposedBox: GetPiecesOfThisProduct(good, runs[i]),
+			}
+			result.Items = append(result.Items, item)
+			index++
+		}
+	}
+	good := GetProductByType(27)
+	item := ShipmentReportItemModel{
+		Num:                 index,
+		Name:                strings.Trim(good.Name, "27. "),
+		Run:                 0,
+		AmountInBox:         0,
+		CompletedBoxes:      smallBoxes,
+		AmountInComposedBox: 0,
+	}
+	result.Items = append(result.Items, item)
 	return result, nil
 }
 
@@ -595,7 +688,7 @@ func GetBoxesToCompleteForOrder(tx *sql.Tx, orderId int) ([]int, error) {
 	return result, nil
 }
 
-func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
+func GetTotalPiecesAmountForCombinedBoxesForOrder(db *sql.DB, orderId int) ([]int, error) {
 	var amounts [26]int
 	var result []int
 
@@ -639,6 +732,52 @@ func GetTotalPiecesAmountForOrder(db *sql.DB, orderId int) ([]int, error) {
 
 	return result, nil
 }
+
+func GetTotalPiecesAmountForOrder(tx *sql.Tx, orderId int) ([]int, error) {
+	var amounts [26]int
+	var result []int
+
+	statement := "select "
+	for i := 1; i < 27; i++ {
+		statement += "\"" + strconv.Itoa(i) + "\","
+	}
+	statement = strings.TrimRight(statement, ",")
+	statement += " from rosstat.rosstat_orders where id = " + strconv.Itoa(orderId) + ";"
+
+	// get total amount of every good type
+	rows, err := tx.Query(statement)
+	if err != nil {
+		log.Println("error get total amount of goods for order: " + err.Error())
+		return []int{0}, err
+	}
+	for rows.Next() {
+		err = rows.Scan(&amounts[0], &amounts[1], &amounts[2],
+			&amounts[3], &amounts[4], &amounts[5],
+			&amounts[6], &amounts[7], &amounts[8],
+			&amounts[9], &amounts[10], &amounts[11],
+			&amounts[12], &amounts[13], &amounts[14],
+			&amounts[15], &amounts[16], &amounts[17],
+			&amounts[18], &amounts[19], &amounts[20],
+			&amounts[21], &amounts[22], &amounts[23],
+			&amounts[24], &amounts[25])
+
+		if err != nil {
+			log.Println("error get data from row: " + err.Error())
+			return []int{0}, err
+		}
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Println("error close row: " + err.Error())
+		return result, err
+	}
+	for i := 1; i < 27; i++ {
+		result = append(result, amounts[i-1])
+	}
+
+	return result, nil
+}
+
 
 func GetTotalBoxesAmount(tx *sql.Tx, orderId int) ([]int, error) {
 	var amounts [26]int
@@ -704,7 +843,10 @@ func GetCompletedBoxesAmount(tx *sql.Tx, orderId int) ([]int, error) {
 			return nil, err
 		}
 		good := GetProductByBoxID(boxId)
-		amounts[good.Type-1] ++
+		if good.Type != 27{
+			amounts[good.Type-1] ++
+		}
+
 
 	}
 	err = rows.Close()
